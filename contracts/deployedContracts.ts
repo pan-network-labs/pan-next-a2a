@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   97: {
     AgentStore: {
-      address: "0xA884fcEd9862E536861577C9eC216518B3770Fbc",
+      address: "0xAF4dE0dD77501017cB41E56644b34eAd21d114b7",
       abi: [
         {
           inputs: [
@@ -31,6 +31,33 @@ const deployedContracts = {
           type: "constructor",
         },
         {
+          inputs: [
+            {
+              internalType: "address",
+              name: "owner",
+              type: "address",
+            },
+          ],
+          name: "OwnableInvalidOwner",
+          type: "error",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "account",
+              type: "address",
+            },
+          ],
+          name: "OwnableUnauthorizedAccount",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "ReentrancyGuardReentrantCall",
+          type: "error",
+        },
+        {
           anonymous: false,
           inputs: [
             {
@@ -42,7 +69,7 @@ const deployedContracts = {
             {
               indexed: false,
               internalType: "string",
-              name: "name",
+              name: "agentCardLink",
               type: "string",
             },
             {
@@ -50,12 +77,6 @@ const deployedContracts = {
               internalType: "address",
               name: "owner",
               type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "price",
-              type: "uint256",
             },
             {
               indexed: false,
@@ -112,6 +133,25 @@ const deployedContracts = {
           type: "event",
         },
         {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "previousOwner",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "newOwner",
+              type: "address",
+            },
+          ],
+          name: "OwnershipTransferred",
+          type: "event",
+        },
+        {
           inputs: [
             {
               internalType: "uint256",
@@ -138,19 +178,6 @@ const deployedContracts = {
               type: "uint256",
             },
           ],
-          name: "callAgent",
-          outputs: [],
-          stateMutability: "payable",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "agentId",
-              type: "uint256",
-            },
-          ],
           name: "getAgentFullInfo",
           outputs: [
             {
@@ -162,33 +189,8 @@ const deployedContracts = {
                 },
                 {
                   internalType: "string",
-                  name: "name",
+                  name: "agentCardLink",
                   type: "string",
-                },
-                {
-                  internalType: "string",
-                  name: "description",
-                  type: "string",
-                },
-                {
-                  internalType: "string",
-                  name: "link",
-                  type: "string",
-                },
-                {
-                  internalType: "enum AgentStore.RequestMethod",
-                  name: "method",
-                  type: "uint8",
-                },
-                {
-                  internalType: "string",
-                  name: "requestParams",
-                  type: "string",
-                },
-                {
-                  internalType: "uint256",
-                  name: "price",
-                  type: "uint256",
                 },
                 {
                   internalType: "address",
@@ -299,33 +301,8 @@ const deployedContracts = {
             },
             {
               internalType: "string",
-              name: "name",
+              name: "agentCardLink",
               type: "string",
-            },
-            {
-              internalType: "string",
-              name: "description",
-              type: "string",
-            },
-            {
-              internalType: "string",
-              name: "link",
-              type: "string",
-            },
-            {
-              internalType: "enum AgentStore.RequestMethod",
-              name: "method",
-              type: "uint8",
-            },
-            {
-              internalType: "string",
-              name: "requestParams",
-              type: "string",
-            },
-            {
-              internalType: "uint256",
-              name: "price",
-              type: "uint256",
             },
             {
               internalType: "address",
@@ -352,6 +329,19 @@ const deployedContracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "owner",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "uint256",
@@ -368,33 +358,8 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
-              name: "name",
+              name: "agentCardLink",
               type: "string",
-            },
-            {
-              internalType: "string",
-              name: "description",
-              type: "string",
-            },
-            {
-              internalType: "string",
-              name: "link",
-              type: "string",
-            },
-            {
-              internalType: "enum AgentStore.RequestMethod",
-              name: "method",
-              type: "uint8",
-            },
-            {
-              internalType: "string",
-              name: "requestParams",
-              type: "string",
-            },
-            {
-              internalType: "uint256",
-              name: "price",
-              type: "uint256",
             },
           ],
           name: "registerAndListAgent",
@@ -405,6 +370,13 @@ const deployedContracts = {
               type: "uint256",
             },
           ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "renounceOwnership",
+          outputs: [],
           stateMutability: "nonpayable",
           type: "function",
         },
@@ -471,6 +443,19 @@ const deployedContracts = {
         {
           inputs: [
             {
+              internalType: "address",
+              name: "newOwner",
+              type: "address",
+            },
+          ],
+          name: "transferOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
               internalType: "uint256",
               name: "agentId",
               type: "uint256",
@@ -490,36 +475,11 @@ const deployedContracts = {
             },
             {
               internalType: "string",
-              name: "name",
+              name: "agentCardLink",
               type: "string",
-            },
-            {
-              internalType: "string",
-              name: "description",
-              type: "string",
-            },
-            {
-              internalType: "string",
-              name: "link",
-              type: "string",
-            },
-            {
-              internalType: "enum AgentStore.RequestMethod",
-              name: "method",
-              type: "uint8",
-            },
-            {
-              internalType: "string",
-              name: "requestParams",
-              type: "string",
-            },
-            {
-              internalType: "uint256",
-              name: "price",
-              type: "uint256",
             },
           ],
-          name: "updateAgent",
+          name: "updateAgentCardLink",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -538,12 +498,48 @@ const deployedContracts = {
           type: "function",
         },
       ],
-      inheritedFunctions: {},
-      deployedOnBlock: 71023925,
+      inheritedFunctions: {
+        owner: "@openzeppelin/contracts/access/Ownable.sol",
+        renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
+        transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
+      },
+      deployedOnBlock: 72712201,
     },
     IdentityRegistry: {
-      address: "0x6d5c277c8AFB1701CcC9301Dcf86C55E5040A544",
+      address: "0x8b2fA898fd4D0f7893B1dfb42b690b3352670dEf",
       abi: [
+        {
+          inputs: [],
+          stateMutability: "nonpayable",
+          type: "constructor",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "owner",
+              type: "address",
+            },
+          ],
+          name: "OwnableInvalidOwner",
+          type: "error",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "account",
+              type: "address",
+            },
+          ],
+          name: "OwnableUnauthorizedAccount",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "ReentrancyGuardReentrantCall",
+          type: "error",
+        },
         {
           anonymous: false,
           inputs: [
@@ -617,6 +613,25 @@ const deployedContracts = {
             },
           ],
           name: "AgentUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "previousOwner",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "newOwner",
+              type: "address",
+            },
+          ],
+          name: "OwnershipTransferred",
           type: "event",
         },
         {
@@ -746,6 +761,19 @@ const deployedContracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "owner",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "address",
@@ -789,6 +817,26 @@ const deployedContracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "renounceOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "newOwner",
+              type: "address",
+            },
+          ],
+          name: "transferOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "uint256",
@@ -807,12 +855,83 @@ const deployedContracts = {
           type: "function",
         },
       ],
-      inheritedFunctions: {},
-      deployedOnBlock: 71023898,
+      inheritedFunctions: {
+        owner: "@openzeppelin/contracts/access/Ownable.sol",
+        renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
+        transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
+      },
+      deployedOnBlock: 72503458,
     },
     PaymentSBT: {
-      address: "0xF7D7F0790A6BD73260a0991167e64f24B66FA98A",
+      address: "0xB05955b5D34171bd9675B9D0BFfe1c73818E671e",
       abi: [
+        {
+          inputs: [],
+          stateMutability: "nonpayable",
+          type: "constructor",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "account",
+              type: "address",
+            },
+          ],
+          name: "AddressInsufficientBalance",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "FailedInnerCall",
+          type: "error",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "owner",
+              type: "address",
+            },
+          ],
+          name: "OwnableInvalidOwner",
+          type: "error",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "account",
+              type: "address",
+            },
+          ],
+          name: "OwnableUnauthorizedAccount",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "ReentrancyGuardReentrantCall",
+          type: "error",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "previousOwner",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "newOwner",
+              type: "address",
+            },
+          ],
+          name: "OwnershipTransferred",
+          type: "event",
+        },
         {
           anonymous: false,
           inputs: [
@@ -877,15 +996,85 @@ const deployedContracts = {
               name: "amount",
               type: "uint256",
             },
+            {
+              indexed: false,
+              internalType: "enum PaymentSBT.Rarity",
+              name: "rarity",
+              type: "uint8",
+            },
           ],
           name: "SBTMinted",
           type: "event",
         },
         {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "to",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amount",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "timestamp",
+              type: "uint256",
+            },
+          ],
+          name: "Withdrawal",
+          type: "event",
+        },
+        {
+          inputs: [],
+          name: "COMMON_PROBABILITY",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "MAX_BATCH_SIZE",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "RARE_PROBABILITY",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "address",
-              name: "owner",
+              name: "user",
               type: "address",
             },
           ],
@@ -914,6 +1103,32 @@ const deployedContracts = {
               internalType: "bool",
               name: "",
               type: "bool",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "getAllReferrers",
+          outputs: [
+            {
+              internalType: "string[]",
+              name: "",
+              type: "string[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "getContractBalance",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
             },
           ],
           stateMutability: "view",
@@ -956,6 +1171,16 @@ const deployedContracts = {
                   name: "description",
                   type: "string",
                 },
+                {
+                  internalType: "enum PaymentSBT.Rarity",
+                  name: "rarity",
+                  type: "uint8",
+                },
+                {
+                  internalType: "string",
+                  name: "referrer",
+                  type: "string",
+                },
               ],
               internalType: "struct PaymentSBT.PaymentInfo",
               name: "",
@@ -987,12 +1212,276 @@ const deployedContracts = {
         {
           inputs: [
             {
+              internalType: "uint256",
+              name: "tokenId",
+              type: "uint256",
+            },
+          ],
+          name: "getRarity",
+          outputs: [
+            {
+              internalType: "enum PaymentSBT.Rarity",
+              name: "",
+              type: "uint8",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "enum PaymentSBT.Rarity",
+              name: "rarity",
+              type: "uint8",
+            },
+          ],
+          name: "getRarityCount",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
               internalType: "address",
-              name: "owner",
+              name: "user",
+              type: "address",
+            },
+            {
+              internalType: "enum PaymentSBT.Rarity",
+              name: "rarity",
+              type: "uint8",
+            },
+          ],
+          name: "getRarityCountByOwner",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "user",
+              type: "address",
+            },
+          ],
+          name: "getRarityStatsByOwner",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "commonCount",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "rareCount",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "totalCount",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "string",
+              name: "referrer",
+              type: "string",
+            },
+          ],
+          name: "getReferrerCount",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "getReferrerListLength",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "getReferrerStats",
+          outputs: [
+            {
+              internalType: "string[]",
+              name: "referrers",
+              type: "string[]",
+            },
+            {
+              internalType: "uint256[]",
+              name: "counts",
+              type: "uint256[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "user",
+              type: "address",
+            },
+          ],
+          name: "getSBTsByAddress",
+          outputs: [
+            {
+              internalType: "uint256[]",
+              name: "tokenIds",
+              type: "uint256[]",
+            },
+            {
+              components: [
+                {
+                  internalType: "uint256",
+                  name: "amount",
+                  type: "uint256",
+                },
+                {
+                  internalType: "address",
+                  name: "payer",
+                  type: "address",
+                },
+                {
+                  internalType: "address",
+                  name: "recipient",
+                  type: "address",
+                },
+                {
+                  internalType: "uint256",
+                  name: "timestamp",
+                  type: "uint256",
+                },
+                {
+                  internalType: "string",
+                  name: "description",
+                  type: "string",
+                },
+                {
+                  internalType: "enum PaymentSBT.Rarity",
+                  name: "rarity",
+                  type: "uint8",
+                },
+                {
+                  internalType: "string",
+                  name: "referrer",
+                  type: "string",
+                },
+              ],
+              internalType: "struct PaymentSBT.PaymentInfo[]",
+              name: "paymentInfos",
+              type: "tuple[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "user",
               type: "address",
             },
           ],
           name: "getTokensByOwner",
+          outputs: [
+            {
+              internalType: "uint256[]",
+              name: "",
+              type: "uint256[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "user",
+              type: "address",
+            },
+            {
+              internalType: "enum PaymentSBT.Rarity",
+              name: "rarity",
+              type: "uint8",
+            },
+          ],
+          name: "getTokensByOwnerAndRarity",
+          outputs: [
+            {
+              internalType: "uint256[]",
+              name: "",
+              type: "uint256[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "enum PaymentSBT.Rarity",
+              name: "rarity",
+              type: "uint8",
+            },
+          ],
+          name: "getTokensByRarity",
+          outputs: [
+            {
+              internalType: "uint256[]",
+              name: "",
+              type: "uint256[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "string",
+              name: "referrer",
+              type: "string",
+            },
+          ],
+          name: "getTokensByReferrer",
           outputs: [
             {
               internalType: "uint256[]",
@@ -1020,6 +1509,11 @@ const deployedContracts = {
               name: "descriptions",
               type: "string[]",
             },
+            {
+              internalType: "string[]",
+              name: "referrers",
+              type: "string[]",
+            },
           ],
           name: "makeBatchPayment",
           outputs: [
@@ -1044,6 +1538,11 @@ const deployedContracts = {
               name: "description",
               type: "string",
             },
+            {
+              internalType: "string",
+              name: "referrer",
+              type: "string",
+            },
           ],
           name: "makePayment",
           outputs: [
@@ -1054,6 +1553,19 @@ const deployedContracts = {
             },
           ],
           stateMutability: "payable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "owner",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
           type: "function",
         },
         {
@@ -1110,6 +1622,16 @@ const deployedContracts = {
               name: "description",
               type: "string",
             },
+            {
+              internalType: "enum PaymentSBT.Rarity",
+              name: "rarity",
+              type: "uint8",
+            },
+            {
+              internalType: "string",
+              name: "referrer",
+              type: "string",
+            },
           ],
           stateMutability: "view",
           type: "function",
@@ -1139,6 +1661,99 @@ const deployedContracts = {
           type: "function",
         },
         {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "referrerList",
+          outputs: [
+            {
+              internalType: "string",
+              name: "",
+              type: "string",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "string",
+              name: "",
+              type: "string",
+            },
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "referrerTokens",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "renounceOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "tokenRarity",
+          outputs: [
+            {
+              internalType: "enum PaymentSBT.Rarity",
+              name: "",
+              type: "uint8",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "enum PaymentSBT.Rarity",
+              name: "",
+              type: "uint8",
+            },
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "tokensByRarity",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "totalSupply",
           outputs: [
@@ -1149,6 +1764,19 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "newOwner",
+              type: "address",
+            },
+          ],
+          name: "transferOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -1175,13 +1803,73 @@ const deployedContracts = {
           stateMutability: "view",
           type: "function",
         },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+            {
+              internalType: "enum PaymentSBT.Rarity",
+              name: "",
+              type: "uint8",
+            },
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "userTokensByRarity",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address payable",
+              name: "to",
+              type: "address",
+            },
+            {
+              internalType: "uint256",
+              name: "amount",
+              type: "uint256",
+            },
+          ],
+          name: "withdraw",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          stateMutability: "payable",
+          type: "receive",
+        },
       ],
-      inheritedFunctions: {},
-      deployedOnBlock: 71052169,
+      inheritedFunctions: {
+        owner: "@openzeppelin/contracts/access/Ownable.sol",
+        renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
+        transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
+      },
+      deployedOnBlock: 72503525,
     },
     ReputationRegistry: {
-      address: "0x44da195b78E0e1843ffDd651Bd713c6aE68d165a",
+      address: "0xa678cbEF73eDBcF570fd52e37fC9b26d496c5f82",
       abi: [
+        {
+          inputs: [],
+          name: "ReentrancyGuardReentrantCall",
+          type: "error",
+        },
         {
           anonymous: false,
           inputs: [
@@ -1430,11 +2118,16 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 71023903,
+      deployedOnBlock: 72503474,
     },
     ValidationRegistry: {
-      address: "0x8558EcBb899c5eFF1d8fbbc7B4E79D09428302E4",
+      address: "0xcDC4794790D88deB28d9FF8E77a7fA0016F9EEFd",
       abi: [
+        {
+          inputs: [],
+          name: "ReentrancyGuardReentrantCall",
+          type: "error",
+        },
         {
           anonymous: false,
           inputs: [
@@ -1789,7 +2482,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 71023911,
+      deployedOnBlock: 72503493,
     },
     YourContract: {
       address: "0xaB94Bc74f031242b1B555870764270527d83ece0",

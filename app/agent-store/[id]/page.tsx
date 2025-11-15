@@ -10,6 +10,8 @@ import { useAccount, useWalletClient, usePublicClient } from "wagmi";
 import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { useLanguage } from "~~/utils/i18n/LanguageContext";
+import { useAgentCard } from "~~/hooks/useAgentCard";
+import { AgentCardDetail } from "~~/components/AgentCard/AgentCardDetail";
 
 // SBT卡片组件
 const SBTCard = ({ 
@@ -191,27 +193,24 @@ const AgentDetail = () => {
     setRequestResult(null);
     
     try {
-      // 根据Agent配置发送HTTP请求
-      const method = methods[Number(listing.method)] || "GET";
-      const url = listing.link;
+      // 从 Agent Card 获取请求方式和 URL（所有信息从 Agent Card 获取）
+      if (!agentCard) {
+        throw new Error("Agent Card is required to call this Agent");
+      }
+      
+      const method = agentCard.calling?.method?.toUpperCase() || "GET";
+      const url = agentCard.endpoints?.task;
+      
+      if (!url) {
+        throw new Error("Agent Card must contain 'endpoints.task'");
+      }
       
       console.log("调用Agent, method:", method, "url:", url);
+      console.log("Agent Card calling config:", agentCard.calling);
       
-      // 解析请求参数
+      // 请求参数从用户输入获取（如果有输入框的话）
       let requestParams = {};
-      try {
-        if (listing.requestParams && listing.requestParams.trim() !== "{}") {
-          requestParams = JSON.parse(listing.requestParams);
-        }
-      } catch (e) {
-        console.error("解析请求参数失败:", e);
-        setRequestResult({
-          success: false,
-          error: t("requestParamsFormatError"),
-        });
-        setIsCalling(false);
-        return;
-      }
+      // 注意：如果需要从 Agent Card 的 inputSchema 生成默认参数，可以在这里处理
       
       // 构建请求配置
       let targetUrl = url;
@@ -222,10 +221,28 @@ const AgentDetail = () => {
         },
       };
       
+      // 如果 Agent Card 中有 calling.headers，合并到请求头中
+      if (agentCard?.calling?.headers) {
+        Object.entries(agentCard.calling.headers).forEach(([key, value]) => {
+          // 如果值是占位符（如 "base64_encoded_transaction_hash"），暂时跳过，后续会在付款后添加
+          if (value && !value.includes("base64_encoded_transaction_hash") && !value.includes("必需")) {
+            requestConfig.headers = {
+              ...requestConfig.headers,
+              [key]: value,
+            };
+          }
+        });
+      }
+      
       // 根据请求方式处理参数
       if (method === "POST" || method === "PUT") {
         // POST和PUT请求，将参数放入body
-        requestConfig.body = JSON.stringify(requestParams);
+        // 如果 Agent Card 的 note 说请求体可以为空，且没有参数，则使用空对象
+        if (agentCard?.calling?.note?.includes("请求体可以为空") && Object.keys(requestParams).length === 0) {
+          requestConfig.body = JSON.stringify({});
+        } else {
+          requestConfig.body = JSON.stringify(requestParams);
+        }
         console.log("请求body:", requestConfig.body);
       } else if (method === "GET" || method === "DELETE") {
         // GET和DELETE请求，将参数添加到URL
@@ -249,20 +266,47 @@ const AgentDetail = () => {
         }
       }
       
-      // 发送HTTP请求（支持自动重试和付款）
+      // 发送HTTP请求（优先直接访问，遇到 CORS 错误时使用代理）
       console.log("发送请求到:", targetUrl);
       let response: Response;
       try {
+        // 优先尝试直接访问
         response = await fetch(targetUrl, requestConfig);
         console.log("HTTP响应状态:", response.status, response.statusText);
-      } catch (fetchError: any) {
-        // 处理网络错误（CORS、连接失败等）
-        const errorMessage = fetchError.message || fetchError.toString();
-        if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
-          const networkErrorMsg = (t("networkConnectionError" as any) as string) || "Network connection failed. Please check the Agent URL and your network connection.";
-          throw new Error(networkErrorMsg);
+      } catch (directError: any) {
+        // 如果是 CORS 错误，使用代理
+        const errorMessage = directError.message || directError.toString();
+        if (
+          errorMessage.includes("CORS") ||
+          errorMessage.includes("Failed to fetch") ||
+          errorMessage.includes("NetworkError") ||
+          errorMessage.includes("Access-Control")
+        ) {
+          console.log("Direct access failed due to CORS, using proxy...");
+          try {
+            // 使用 Next.js API 代理路由
+            response = await fetch("/api/proxy-agent", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                url: targetUrl,
+                method: method,
+                headers: requestConfig.headers,
+                body: requestConfig.body,
+              }),
+            });
+            console.log("HTTP响应状态 (via proxy):", response.status, response.statusText);
+          } catch (proxyError: any) {
+            // 代理也失败了
+            const networkErrorMsg = (t("networkConnectionError" as any) as string) || "Network connection failed. Please check the Agent URL and your network connection.";
+            throw new Error(networkErrorMsg);
+          }
+        } else {
+          // 其他错误直接抛出
+          throw directError;
         }
-        throw fetchError;
       }
       
       // 处理402 Payment Required错误
@@ -274,25 +318,33 @@ const AgentDetail = () => {
           throw new Error(t("connectWalletForPayment"));
         }
         
-        // 解析付款详情
+        // 解析付款详情（代理返回的 JSON）
         let paymentDetails;
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
+        try {
           paymentDetails = await response.json();
-        } else {
-          const text = await response.text();
-          try {
-            paymentDetails = JSON.parse(text);
-          } catch (e) {
-            throw new Error(t("cannotParse402Response"));
-          }
+        } catch (e) {
+          throw new Error(t("cannotParse402Response"));
         }
         
         console.log("付款详情:", paymentDetails);
         
-        // 验证付款详情格式
-        if (!paymentDetails.address || !paymentDetails.price) {
+        // 安全检查：验证付款详情格式（现在只需要验证价格，address不再需要）
+        if (!paymentDetails.price) {
           throw new Error(t("paymentDetailsFormatError"));
+        }
+        
+        // 安全检查：验证价格是有效数字
+        const priceValue = typeof paymentDetails.price === 'string' 
+          ? parseFloat(paymentDetails.price) 
+          : Number(paymentDetails.price);
+        
+        if (isNaN(priceValue) || priceValue <= 0) {
+          throw new Error(`${t("priceFormatError")} ${paymentDetails.price}`);
+        }
+        
+        // 安全检查：防止价格过大（防止溢出，例如超过 1000 ETH）
+        if (priceValue > 1000) {
+          throw new Error(`Price too large: ${priceValue} ETH. Maximum allowed: 1000 ETH`);
         }
         
         // 处理价格转换（支持字符串格式）
@@ -300,6 +352,12 @@ const AgentDetail = () => {
         try {
           const priceStr = paymentDetails.price.toString();
           priceInWei = parseEther(priceStr);
+          
+          // 安全检查：确保转换后的值大于 0
+          if (priceInWei <= 0n) {
+            throw new Error(`${t("priceFormatError")} ${paymentDetails.price}`);
+          }
+          
           console.log("价格转换:", priceStr, "=>", priceInWei.toString(), "wei");
         } catch (e) {
           throw new Error(`${t("priceFormatError")} ${paymentDetails.price}`);
@@ -311,13 +369,12 @@ const AgentDetail = () => {
           // 这里可以添加网络切换逻辑
         }
         
-        // 调用PaymentSBT合约付款（mint SBT并转账）
+        // 调用PaymentSBT合约付款（mint SBT，资金存储在合约中）
         console.log("开始调用PaymentSBT合约的makePayment进行付款...");
         console.log("付款参数:", {
-          recipient: paymentDetails.address,
           amount: priceInWei.toString(),
           amountInEth: formatEther(priceInWei),
-          description: `Payment for Agent: ${listing.name}`,
+          description: `Payment for Agent: ${agentCard?.name || `Agent #${listing.agentId}`}`,
         });
         
         if (!paymentSBTContract) {
@@ -335,9 +392,36 @@ const AgentDetail = () => {
         let txHash: string;
         try {
           console.log("发送makePayment交易...");
-          // 调用makePayment函数：会自动mint SBT并转账给recipient
+          
+          // 安全检查：验证 description 长度（合约限制 500 字符）
+          const description = `Payment for Agent: ${agentCard?.name || `Agent #${listing.agentId}`}`;
+          if (description.length > 500) {
+            throw new Error("Description too long (maximum 500 characters)");
+          }
+          
+          // 获取推荐码（从 URL 参数或 localStorage，如果没有则为空字符串）
+          let referrerCode: string = "";
+          
+          // 尝试从 URL 参数获取 referrer
+          if (typeof window !== "undefined") {
+            const urlParams = new URLSearchParams(window.location.search);
+            const referrerParam = urlParams.get("referrer");
+            if (referrerParam && referrerParam.trim().length > 0 && referrerParam.length <= 100) {
+              referrerCode = referrerParam.trim();
+            } else {
+              // 尝试从 localStorage 获取
+              const storedReferrer = localStorage.getItem("referrer");
+              if (storedReferrer && storedReferrer.trim().length > 0 && storedReferrer.length <= 100) {
+                referrerCode = storedReferrer.trim();
+              }
+            }
+          }
+          
+          // 调用makePayment函数：会自动mint SBT，资金存储在合约中（合约作为收款方）
+          // recipient 参数：SBT将发放给调用Agent的用户地址
+          // referrer 参数：推荐码（可选，可为空字符串）
           const hash = await paymentSBTContract.write.makePayment(
-            [paymentDetails.address as `0x${string}`, `Payment for Agent: ${listing.name}`],
+            [address as `0x${string}`, description, referrerCode],
             {
               value: priceInWei,
             }
@@ -401,15 +485,17 @@ const AgentDetail = () => {
           
           // 保存SBT信息用于显示
           if (tokenId > 0n) {
+            // 获取合约地址作为收款方
+            const contractAddress = paymentSBTContractData.address;
             setMintedSBT({
               tokenId,
               txHash,
-              recipient: paymentDetails.address,
+              recipient: contractAddress,
               amount: formatEther(priceInWei),
             });
           }
           
-          console.log("✅ SBT已铸造，付款已转账到:", paymentDetails.address);
+          console.log("✅ SBT已铸造，付款已存储到合约:", paymentSBTContractData.address);
           
         } catch (error: any) {
           console.error("付款失败:", error);
@@ -454,25 +540,52 @@ const AgentDetail = () => {
         
         console.log("重新发送请求，包含X-PAYMENT头（交易哈希）:", txHash);
         try {
+          // 优先尝试直接访问
           response = await fetch(targetUrl, requestConfig);
           console.log("重新请求后的HTTP响应状态:", response.status, response.statusText);
-        } catch (fetchError: any) {
-          // 处理网络错误（CORS、连接失败等）
-          const errorMessage = fetchError.message || fetchError.toString();
-          if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
-            const networkErrorMsg = (t("networkConnectionError" as any) as string) || "Network connection failed. Please check the Agent URL and your network connection.";
-            throw new Error(networkErrorMsg);
+        } catch (directError: any) {
+          // 如果是 CORS 错误，使用代理
+          const errorMessage = directError.message || directError.toString();
+          if (
+            errorMessage.includes("CORS") ||
+            errorMessage.includes("Failed to fetch") ||
+            errorMessage.includes("NetworkError") ||
+            errorMessage.includes("Access-Control")
+          ) {
+            console.log("Direct access failed due to CORS, using proxy for retry...");
+            try {
+              // 使用 Next.js API 代理路由
+              response = await fetch("/api/proxy-agent", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  url: targetUrl,
+                  method: method,
+                  headers: requestConfig.headers,
+                  body: requestConfig.body,
+                }),
+              });
+              console.log("重新请求后的HTTP响应状态 (via proxy):", response.status, response.statusText);
+            } catch (proxyError: any) {
+              // 代理也失败了
+              const networkErrorMsg = (t("networkConnectionError" as any) as string) || "Network connection failed. Please check the Agent URL and your network connection.";
+              throw new Error(networkErrorMsg);
+            }
+          } else {
+            // 其他错误直接抛出
+            throw directError;
           }
-          throw fetchError;
         }
       }
       
-      // 处理最终响应
-      let responseData;
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
+      // 处理最终响应（代理返回的 JSON）
+      let responseData: any;
+      try {
         responseData = await response.json();
-      } else {
+      } catch (e) {
+        // 如果解析失败，尝试作为文本
         responseData = await response.text();
       }
       
@@ -581,6 +694,12 @@ const AgentDetail = () => {
   // 检查是否是 Agent 的所有者
   const isOwner = address && listing && listing.owner?.toLowerCase() === address.toLowerCase();
 
+  // 获取 Agent Card 数据（如果 agentCardLink 存在）
+  const { agentCard, loading: cardLoading, error: cardError } = useAgentCard(
+    listing?.agentCardLink,
+    !!listing?.agentCardLink
+  );
+
   return (
     <>
       <div className="flex items-center flex-col grow pt-10 pb-10">
@@ -591,69 +710,22 @@ const AgentDetail = () => {
 
           {listing && identity ? (
             <>
-              {/* Agent 基本信息 */}
+              {/* Agent Card 详情（如果有 agentCardLink，优先显示） */}
+              {listing.agentCardLink && (
+                <div className="mb-6">
+                  <AgentCardDetail 
+                    agentCard={agentCard} 
+                    loading={cardLoading} 
+                    error={cardError}
+                  />
+                </div>
+              )}
+
+              {/* 所有者信息（仅显示必要的权限信息） */}
               <div className="card bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-lg mb-6 animate-border-glow">
                 <div className="card-body">
-                  <h1 className="card-title text-3xl text-white">{listing.name}</h1>
-                  <p className="text-white/70">{listing.description}</p>
-                  
-                  <div className="divider opacity-20"></div>
-
-                  <div className="space-y-3">
-                    {/* Link、Request Method、Request Parameters 已隐藏，保留代码以便后续恢复 */}
-                    {/* <div>
-                      <p className="text-sm font-semibold mb-1 text-white">{t("agentLink")}</p>
-                      <a
-                        href={listing.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="link text-sm break-all text-[#FF6B00] hover:text-[#FFA040] transition-colors"
-                      >
-                        {listing.link}
-                      </a>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold mb-1 text-white">{t("agentRequestMethod")}</p>
-                      <div className="badge badge-lg bg-[#FF6B00]/20 text-[#FF6B00] border border-[#FF6B00]/30">
-                        {methods[Number(listing.method)] || "GET"}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold mb-1 text-white">{t("agentRequestParams")}</p>
-                      <pre className="bg-[#261A10]/50 p-3 rounded-lg text-xs overflow-x-auto text-white/80 border border-[#FF6B00]/20 font-mono">
-                        {listing.requestParams || "{}"}
-                      </pre>
-                    </div> */}
-
-                    <div>
-                      <p className="text-sm font-semibold mb-1 text-white">{t("agentPrice")}</p>
-                      <div className="text-2xl font-bold animate-text-shimmer">
-                        {formatEther(BigInt(listing.price?.toString() || "0"))} ETH
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="divider opacity-20"></div>
-
-                  <div className="flex flex-wrap gap-4">
-                    <div className="badge bg-[#FF6B00]/20 text-[#FF6B00] border border-[#FF6B00]/30">
-                      {t("usageCount")}: {listing.usageCount?.toString()}
-                    </div>
-                    <div className="badge bg-[#FF6B00]/20 text-[#FF6B00] border border-[#FF6B00]/30">
-                      {t("ratingLabel")}: {averageRating ? (Number(averageRating) / 1000).toFixed(1) : "N/A"}
-                    </div>
-                    {/* Feedback Count 已隐藏，因为评价功能已移除 */}
-                    {/* <div className="badge bg-[#FF6B00]/20 text-[#FF6B00] border border-[#FF6B00]/30">
-                      {t("feedbackCount")}: {feedbackCount?.toString() || "0"}
-                    </div> */}
-                  </div>
-
-                  <div className="mt-4">
-                    <p className="text-sm text-white/70">{t("agentOwner")}</p>
-                    <Address address={listing.owner} />
-                  </div>
+                  <h2 className="card-title text-xl text-white mb-4">{t("agentOwner") || "Owner"}</h2>
+                  <Address address={listing.owner} />
 
                   <div className="card-actions justify-between mt-6">
                     {/* 所有者操作按钮 */}
