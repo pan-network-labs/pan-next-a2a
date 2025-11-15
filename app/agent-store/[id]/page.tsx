@@ -5,9 +5,9 @@ import { useParams } from "next/navigation";
 import { useScaffoldReadContract, useScaffoldWriteContract, useScaffoldContract } from "~~/hooks/scaffold-eth";
 import { Address } from "@scaffold-ui/components";
 import Link from "next/link";
-import { formatEther, parseEther, decodeEventLog } from "viem";
+import { formatEther, parseEther } from "viem";
 import { useAccount, useWalletClient, usePublicClient } from "wagmi";
-import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
+// useDeployedContractInfo 已移除：不再需要 PaymentSBT 合约信息
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { useLanguage } from "~~/utils/i18n/LanguageContext";
 import { useAgentCard } from "~~/hooks/useAgentCard";
@@ -120,12 +120,7 @@ const AgentDetail = () => {
     data?: any;
     error?: string;
   } | null>(null);
-  const [mintedSBT, setMintedSBT] = useState<{
-    tokenId: bigint;
-    txHash: string;
-    recipient: string;
-    amount: string;
-  } | null>(null);
+  // mintedSBT 状态已移除：用户直接支付给 Agent，Agent 自行处理 SBT 铸造
   const [showMySBTs, setShowMySBTs] = useState(false);
   const [isUnlisting, setIsUnlisting] = useState(false);
   const { address } = useAccount();
@@ -164,23 +159,28 @@ const AgentDetail = () => {
     contractName: "AgentStore",
   });
 
-  // 获取PaymentSBT合约信息（如果已部署）
-  const { data: paymentSBTContractData } = useDeployedContractInfo({
-    contractName: "PaymentSBT" as any,
-  });
-  
+  // PaymentSBT 合约相关 hooks 已移除：用户直接支付给 Agent，Agent 自行处理 SBT 铸造
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+  
+  // 保留 PaymentSBT 合约查询用于查看用户的 SBT（只读）
   const { data: paymentSBTContract } = useScaffoldContract({
     contractName: "PaymentSBT" as any,
-    walletClient: walletClient || undefined,
+    walletClient: undefined, // 只读，不需要 walletClient
   });
 
   const methods = ["GET", "POST", "PUT", "DELETE"];
 
   // 编码交易哈希到base64（用于请求头）
+  // 在浏览器环境中使用 btoa，在 Node.js 环境中使用 Buffer
   const encodeTx = (txHash: string): string => {
-    return Buffer.from(txHash).toString("base64");
+    if (typeof window !== 'undefined') {
+      // 浏览器环境
+      return btoa(txHash);
+    } else {
+      // Node.js 环境
+      return Buffer.from(txHash).toString("base64");
+    }
   };
 
   const handleCallAgent = async () => {
@@ -321,47 +321,149 @@ const AgentDetail = () => {
         // 解析付款详情（代理返回的 JSON）
         let paymentDetails;
         try {
-          paymentDetails = await response.json();
+          const responseData = await response.json();
+          console.log("402响应原始数据:", responseData);
+          console.log("402响应数据类型:", typeof responseData);
+          console.log("402响应数据键:", Object.keys(responseData || {}));
+          
+          // 支持 x402 协议格式：{ accepts: [{ address, maxAmountRequired, currency, ... }], x402Version: 1 }
+          if (responseData.accepts && Array.isArray(responseData.accepts) && responseData.accepts.length > 0) {
+            // x402 格式：从 accepts 数组的第一个元素获取支付信息
+            const accept = responseData.accepts[0];
+            console.log("检测到 x402 格式，accept 对象:", accept);
+            console.log("accept 对象类型:", typeof accept);
+            console.log("accept 对象键:", Object.keys(accept || {}));
+            
+            // 检查必需的字段：价格
+            if (!accept.maxAmountRequired && !accept.price && !accept.amount) {
+              console.error("x402 accept 对象缺少价格字段:", accept);
+              console.error("accept.maxAmountRequired:", accept.maxAmountRequired);
+              console.error("accept.price:", accept.price);
+              console.error("accept.amount:", accept.amount);
+              throw new Error(t("paymentDetailsFormatError"));
+            }
+            
+            // 检查必需的字段：地址
+            if (!accept.address) {
+              console.error("x402 accept 对象缺少地址字段:", accept);
+              console.error("accept.address:", accept.address);
+              throw new Error(t("paymentDetailsFormatError"));
+            }
+            
+            paymentDetails = {
+              address: accept.address,
+              price: accept.maxAmountRequired || accept.price || accept.amount, // 优先使用 maxAmountRequired，兼容其他字段名
+              currency: accept.currency || "ETH",
+              network: accept.network,
+              description: accept.description,
+              scheme: accept.scheme,
+              resource: accept.resource,
+            };
+            console.log("检测到 x402 格式，提取支付信息:", paymentDetails);
+          } else if (responseData.data && typeof responseData.data === 'object') {
+            // 嵌套结构：{ data: { price: ... } }
+            console.log("检测到嵌套 data 结构");
+            paymentDetails = responseData.data;
+          } else if (responseData.paymentDetails && typeof responseData.paymentDetails === 'object') {
+            // 嵌套结构：{ paymentDetails: { price: ... } }
+            console.log("检测到嵌套 paymentDetails 结构");
+            paymentDetails = responseData.paymentDetails;
+          } else if (responseData.price !== undefined || responseData.maxAmountRequired !== undefined) {
+            // 直接格式：{ price: ... } 或 { maxAmountRequired: ... }
+            console.log("检测到直接格式");
+            paymentDetails = {
+              ...responseData,
+              price: responseData.price || responseData.maxAmountRequired || responseData.amount,
+            };
+          } else {
+            // 尝试查找任何包含 price 字段的对象
+            console.log("使用默认分支，直接使用 responseData");
+            paymentDetails = responseData;
+          }
         } catch (e) {
+          console.error("解析402响应失败:", e);
+          if (e instanceof Error && e.message.includes("paymentDetailsFormatError")) {
+            throw e; // 重新抛出格式错误
+          }
           throw new Error(t("cannotParse402Response"));
         }
         
-        console.log("付款详情:", paymentDetails);
+        console.log("付款详情 (解析后):", paymentDetails);
+        console.log("付款详情类型:", typeof paymentDetails);
+        console.log("付款详情键:", Object.keys(paymentDetails || {}));
+        console.log("付款详情.address:", paymentDetails?.address);
+        console.log("付款详情.price:", paymentDetails?.price);
+        console.log("付款详情.maxAmountRequired:", paymentDetails?.maxAmountRequired);
+        console.log("付款详情.amount:", paymentDetails?.amount);
         
-        // 安全检查：验证付款详情格式（现在只需要验证价格，address不再需要）
-        if (!paymentDetails.price) {
+        // 安全检查：验证付款详情格式
+        if (!paymentDetails || typeof paymentDetails !== 'object') {
+          console.error("paymentDetails 不是对象:", paymentDetails);
           throw new Error(t("paymentDetailsFormatError"));
         }
         
-        // 安全检查：验证价格是有效数字
-        const priceValue = typeof paymentDetails.price === 'string' 
-          ? parseFloat(paymentDetails.price) 
-          : Number(paymentDetails.price);
-        
-        if (isNaN(priceValue) || priceValue <= 0) {
-          throw new Error(`${t("priceFormatError")} ${paymentDetails.price}`);
+        // 检查价格字段（支持多种字段名：price, maxAmountRequired, amount）
+        const priceFieldValue = paymentDetails.price || paymentDetails.maxAmountRequired || paymentDetails.amount;
+        if (!priceFieldValue && priceFieldValue !== 0 && priceFieldValue !== "0") {
+          console.error("paymentDetails 缺少 price/maxAmountRequired/amount 字段:", paymentDetails);
+          console.error("paymentDetails.price:", paymentDetails.price);
+          console.error("paymentDetails.maxAmountRequired:", paymentDetails.maxAmountRequired);
+          console.error("paymentDetails.amount:", paymentDetails.amount);
+          throw new Error(t("paymentDetailsFormatError"));
         }
         
-        // 安全检查：防止价格过大（防止溢出，例如超过 1000 ETH）
-        if (priceValue > 1000) {
-          throw new Error(`Price too large: ${priceValue} ETH. Maximum allowed: 1000 ETH`);
+        // 统一使用 price 字段（保持原始值，可能是 wei 单位）
+        if (!paymentDetails.price) {
+          paymentDetails.price = priceFieldValue;
         }
         
-        // 处理价格转换（支持字符串格式）
+        // 检查地址字段（必需）
+        if (!paymentDetails.address) {
+          console.error("paymentDetails 缺少 address 字段:", paymentDetails);
+          console.error("paymentDetails 所有字段:", Object.keys(paymentDetails));
+          throw new Error(t("paymentDetailsFormatError"));
+        }
+        
+        // 将价格转换为 BigInt 以便处理（支持 wei 单位）
         let priceInWei: bigint;
         try {
           const priceStr = paymentDetails.price.toString();
-          priceInWei = parseEther(priceStr);
-          
-          // 安全检查：确保转换后的值大于 0
-          if (priceInWei <= 0n) {
-            throw new Error(`${t("priceFormatError")} ${paymentDetails.price}`);
+          // 如果价格看起来是 wei（大于 1e12），直接使用
+          // 否则假设是 ETH 单位，需要转换为 wei
+          const priceNum = parseFloat(priceStr);
+          if (priceNum > 1e12 || priceStr.length > 15) {
+            // 看起来是 wei 单位
+            priceInWei = BigInt(priceStr);
+          } else {
+            // 看起来是 ETH 单位，转换为 wei
+            priceInWei = parseEther(priceStr);
           }
-          
-          console.log("价格转换:", priceStr, "=>", priceInWei.toString(), "wei");
         } catch (e) {
+          console.error("价格转换失败:", e, paymentDetails.price);
           throw new Error(`${t("priceFormatError")} ${paymentDetails.price}`);
         }
+        
+        // 安全检查：确保价格大于 0
+        if (priceInWei <= 0n) {
+          throw new Error(`${t("priceFormatError")} ${paymentDetails.price}`);
+        }
+        
+        // 将 wei 转换为 ETH 进行验证（防止价格过大）
+        const priceInEth = Number(priceInWei) / 1e18;
+        console.log("价格验证:", priceInWei.toString(), "wei =", priceInEth, "ETH");
+        
+        // 安全检查：防止价格过大（防止溢出，例如超过 1000 ETH）
+        if (priceInEth > 1000) {
+          throw new Error(`Price too large: ${priceInEth} ETH. Maximum allowed: 1000 ETH`);
+        }
+        
+        // 安全检查：验证价格是有效数字（ETH 单位）
+        if (isNaN(priceInEth) || priceInEth <= 0) {
+          throw new Error(`${t("priceFormatError")} ${paymentDetails.price}`);
+        }
+        
+        // priceInWei 已经在上面计算好了，直接使用
+        console.log("使用价格:", priceInWei.toString(), "wei =", priceInEth, "ETH");
         
         // 检查网络是否匹配（如果有指定）
         if (paymentDetails.network) {
@@ -369,63 +471,39 @@ const AgentDetail = () => {
           // 这里可以添加网络切换逻辑
         }
         
-        // 调用PaymentSBT合约付款（mint SBT，资金存储在合约中）
-        console.log("开始调用PaymentSBT合约的makePayment进行付款...");
-        console.log("付款参数:", {
-          amount: priceInWei.toString(),
-          amountInEth: formatEther(priceInWei),
-          description: `Payment for Agent: ${agentCard?.name || `Agent #${listing.agentId}`}`,
-        });
-        
-        if (!paymentSBTContract) {
-          throw new Error(t("paymentSBTContractNotDeployed"));
+        // 验证 Agent 返回的支付地址
+        if (!paymentDetails.address) {
+          throw new Error("Agent 返回的支付信息中缺少收款地址");
         }
         
-        if (!paymentSBTContractData) {
-          throw new Error(t("paymentSBTContractInfoNotFound"));
-        }
+        const agentPaymentAddress = paymentDetails.address as `0x${string}`;
+        
+        console.log("支付信息:");
+        console.log("  - Agent 收款地址:", agentPaymentAddress);
+        console.log("  - 支付金额:", priceInWei.toString(), "wei =", priceInEth, paymentDetails.currency || "ETH");
+        console.log("  - 网络:", paymentDetails.network || "当前网络");
         
         if (!walletClient) {
           throw new Error(t("walletClientNotConnected"));
         }
         
+        if (!publicClient) {
+          throw new Error(t("publicClientNotConnected"));
+        }
+        
+        // 直接发送原生代币转账到 Agent 返回的地址
+        console.log("开始向 Agent 地址发送付款...");
+        
         let txHash: string;
         try {
-          console.log("发送makePayment交易...");
+          console.log("发送原生代币转账交易...");
           
-          // 安全检查：验证 description 长度（合约限制 500 字符）
-          const description = `Payment for Agent: ${agentCard?.name || `Agent #${listing.agentId}`}`;
-          if (description.length > 500) {
-            throw new Error("Description too long (maximum 500 characters)");
-          }
-          
-          // 获取推荐码（从 URL 参数或 localStorage，如果没有则为空字符串）
-          let referrerCode: string = "";
-          
-          // 尝试从 URL 参数获取 referrer
-          if (typeof window !== "undefined") {
-            const urlParams = new URLSearchParams(window.location.search);
-            const referrerParam = urlParams.get("referrer");
-            if (referrerParam && referrerParam.trim().length > 0 && referrerParam.length <= 100) {
-              referrerCode = referrerParam.trim();
-            } else {
-              // 尝试从 localStorage 获取
-              const storedReferrer = localStorage.getItem("referrer");
-              if (storedReferrer && storedReferrer.trim().length > 0 && storedReferrer.length <= 100) {
-                referrerCode = storedReferrer.trim();
-              }
-            }
-          }
-          
-          // 调用makePayment函数：会自动mint SBT，资金存储在合约中（合约作为收款方）
-          // recipient 参数：SBT将发放给调用Agent的用户地址
-          // referrer 参数：推荐码（可选，可为空字符串）
-          const hash = await paymentSBTContract.write.makePayment(
-            [address as `0x${string}`, description, referrerCode],
-            {
-              value: priceInWei,
-            }
-          );
+          // 使用 walletClient 发送原生代币转账
+          const hash = await walletClient.sendTransaction({
+            to: agentPaymentAddress,
+            value: priceInWei,
+            account: address as `0x${string}`,
+          });
           
           if (!hash) {
             throw new Error(t("transactionFailedNoHash"));
@@ -436,66 +514,14 @@ const AgentDetail = () => {
           console.log("等待交易确认...");
           
           // 等待交易确认
-          if (!publicClient) {
-            throw new Error(t("publicClientNotConnected"));
-          }
-          
           const receipt = await publicClient.waitForTransactionReceipt({
             hash: txHash as `0x${string}`,
             timeout: 60_000, // 60秒超时
           });
           
           console.log("✅ 交易已确认，区块号:", receipt.blockNumber);
-          
-          // 解析SBTMinted事件获取tokenId
-          let tokenId: bigint = 0n;
-          if (paymentSBTContractData?.abi) {
-            try {
-              for (const log of receipt.logs) {
-                try {
-                  const decoded = decodeEventLog({
-                    abi: paymentSBTContractData.abi as any,
-                    data: log.data,
-                    topics: log.topics,
-                  }) as any;
-                  if (decoded.eventName === "SBTMinted") {
-                    tokenId = decoded.args.tokenId as bigint;
-                    console.log("✅ SBT已铸造，Token ID:", tokenId.toString());
-                    break;
-                  }
-                } catch (e) {
-                  // 不是目标事件，继续
-                }
-              }
-            } catch (e) {
-              console.error("解析事件失败，尝试备用方法:", e);
-            }
-          }
-          
-          // 如果事件解析失败，尝试从totalSupply获取（最后一个tokenId）
-          if (tokenId === 0n && paymentSBTContract) {
-            try {
-              const totalSupply = await paymentSBTContract.read.totalSupply([]) as bigint;
-              tokenId = totalSupply; // 最后一个就是刚铸造的
-              console.log("✅ 通过totalSupply获取Token ID:", tokenId.toString());
-            } catch (e) {
-              console.error("获取totalSupply失败:", e);
-            }
-          }
-          
-          // 保存SBT信息用于显示
-          if (tokenId > 0n) {
-            // 获取合约地址作为收款方
-            const contractAddress = paymentSBTContractData.address;
-            setMintedSBT({
-              tokenId,
-              txHash,
-              recipient: contractAddress,
-              amount: formatEther(priceInWei),
-            });
-          }
-          
-          console.log("✅ SBT已铸造，付款已存储到合约:", paymentSBTContractData.address);
+          console.log("✅ 付款已发送到 Agent 地址:", agentPaymentAddress);
+          console.log("注意: Agent 会自行处理 SBT 铸造，请等待 Agent 响应");
           
         } catch (error: any) {
           console.error("付款失败:", error);
@@ -532,13 +558,33 @@ const AgentDetail = () => {
         }
         
         // 传递txHash给Agent，Agent可以通过链上查询验证付款信息
-        const encodedTx = encodeTx(txHash);
+        // 检查 Agent Card 中是否有 X-PAYMENT 头的配置要求
+        let paymentHeaderValue: string;
+        if (agentCard?.calling?.headers?.["X-PAYMENT"]) {
+          // 如果 Agent Card 中指定了 X-PAYMENT 的格式，使用它（可能是占位符）
+          const headerTemplate = agentCard.calling.headers["X-PAYMENT"];
+          if (headerTemplate.includes("base64_encoded_transaction_hash") || headerTemplate.includes("必需")) {
+            // 使用 base64 编码的 txHash
+            paymentHeaderValue = encodeTx(txHash);
+          } else {
+            // 直接使用 txHash（如果 Agent Card 指定了其他格式）
+            paymentHeaderValue = txHash;
+          }
+        } else {
+          // 默认使用 base64 编码
+          paymentHeaderValue = encodeTx(txHash);
+        }
+        
         requestConfig.headers = {
           ...requestConfig.headers,
-          "X-PAYMENT": encodedTx,
+          "X-PAYMENT": paymentHeaderValue,
         };
         
-        console.log("重新发送请求，包含X-PAYMENT头（交易哈希）:", txHash);
+        console.log("重新发送请求，包含X-PAYMENT头:");
+        console.log("  - 原始交易哈希:", txHash);
+        console.log("  - 编码后的值:", paymentHeaderValue);
+        console.log("  - 编码方式: base64");
+        console.log("  - 完整请求头:", requestConfig.headers);
         try {
           // 优先尝试直接访问
           response = await fetch(targetUrl, requestConfig);
@@ -854,44 +900,7 @@ const AgentDetail = () => {
                     </div>
                   )}
 
-                  {/* 新铸造的SBT信息 */}
-                  {mintedSBT && (
-                    <div className="mt-6 p-4 rounded-lg border-2 bg-[#FF6B00]/10 border-[#FF6B00]/30 animate-border-glow">
-                      <h3 className="text-lg font-semibold mb-3 text-[#FF6B00]">
-                        {t("sbtMinted")}
-                      </h3>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-white/70">{t("tokenId")}</span>
-                          <span className="text-white font-mono">{mintedSBT.tokenId.toString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/70">{t("paymentAmount")}</span>
-                          <span className="text-white">{mintedSBT.amount} ETH</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/70">{t("recipientAddress")}</span>
-                          <Address address={mintedSBT.recipient as `0x${string}`} />
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/70">{t("transactionHash")}</span>
-                          <a
-                            href={`${targetNetwork.blockExplorers?.default?.url || '#'}/tx/${mintedSBT.txHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="link text-[#FF6B00] hover:text-[#FFA040] text-xs font-mono break-all"
-                          >
-                            {mintedSBT.txHash.slice(0, 10)}...{mintedSBT.txHash.slice(-8)}
-                          </a>
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-[#FF6B00]/20">
-                          <p className="text-xs text-yellow-400">
-                            {t("sbtTip")}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  {/* SBT 铸造信息已移除：用户直接支付给 Agent，Agent 会自行处理 SBT 铸造 */}
                 </div>
               </div>
 
