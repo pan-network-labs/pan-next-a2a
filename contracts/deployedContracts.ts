@@ -863,7 +863,7 @@ const deployedContracts = {
       deployedOnBlock: 72503458,
     },
     PaymentSBT: {
-      address: "0x01B659f7D7Db053e173aB6B9326389037a9E5ad7",
+      address: "0xD2509adAAB191DDAcBFb37396815caB27CA21bD6",
       abi: [
         {
           inputs: [],
@@ -1521,13 +1521,7 @@ const deployedContracts = {
             },
           ],
           name: "makeBatchPayment",
-          outputs: [
-            {
-              internalType: "uint256[]",
-              name: "tokenIds",
-              type: "uint256[]",
-            },
-          ],
+          outputs: [],
           stateMutability: "payable",
           type: "function",
         },
@@ -1550,13 +1544,7 @@ const deployedContracts = {
             },
           ],
           name: "makePayment",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "tokenId",
-              type: "uint256",
-            },
-          ],
+          outputs: [],
           stateMutability: "payable",
           type: "function",
         },
@@ -1978,7 +1966,7 @@ const deployedContracts = {
         renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
         transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
       },
-      deployedOnBlock: 73290619,
+      deployedOnBlock: 73398161,
     },
     ReputationRegistry: {
       address: "0xa678cbEF73eDBcF570fd52e37fC9b26d496c5f82",
