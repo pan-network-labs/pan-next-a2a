@@ -30,6 +30,9 @@ const scaffoldConfig = {
   rpcOverrides: {
     // Example:
     // [chains.mainnet.id]: "https://mainnet.rpc.buidlguidl.com",
+    // BSC Testnet: 使用 Alchemy RPC 或 Binance 官方 RPC（支持 CORS）
+    [chains.bscTestnet.id]: process.env.NEXT_PUBLIC_BSC_TESTNET_RPC || 
+      `https://bnb-testnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || DEFAULT_ALCHEMY_API_KEY}`,
   },
 
   // This is ours WalletConnect's default project ID.

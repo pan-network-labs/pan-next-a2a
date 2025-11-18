@@ -34,6 +34,7 @@ export const RPC_CHAIN_NAMES: Record<number, string> = {
   [chains.baseSepolia.id]: "base-sepolia",
   [chains.celo.id]: "celo-mainnet",
   [chains.celoSepolia.id]: "celo-sepolia",
+  [chains.bscTestnet.id]: "bnb-testnet", // BSC Testnet for Alchemy
 };
 
 export const getAlchemyHttpUrl = (chainId: number) => {
