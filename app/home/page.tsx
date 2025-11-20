@@ -180,7 +180,9 @@ const HomePage = () => {
   }, [address]);
 
   // 获取各项积分（useTotalPoints 内部已经调用了所有单独的 hooks，所以只需要调用一次）
-  const { totalPoints, breakdown, isLoading: isLoadingTotalPoints } = useTotalPoints(address);
+  const { totalPoints, breakdown, isLoading: isLoadingTotalPoints } = useTotalPoints(
+    address as `0x${string}` | undefined
+  );
   
   // 从 breakdown 中获取各项积分，避免重复查询
   const selfMintSBTPoints = breakdown.selfMintSBT;
