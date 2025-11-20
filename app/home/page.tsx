@@ -2,19 +2,36 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { formatEther } from "viem";
-import { useScaffoldReadContract, useScaffoldContract } from "~~/hooks/scaffold-eth";
+import { useAccount } from "wagmi";
+import { useScaffoldReadContract, useScaffoldContract, useCopyToClipboard, useTotalPoints, useSelfMintSBTPoints, useSelfCreateAgentPoints, useReferMintSBTPoints, useReferCreateAgentPoints } from "~~/hooks/scaffold-eth";
 import { LinkWithParams } from "~~/components/LinkWithParams";
 import { useLanguage } from "~~/utils/i18n/LanguageContext";
 import { useAgentCard } from "~~/hooks/useAgentCard";
+import CryptoJS from "crypto-js";
+import { DocumentDuplicateIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { useRouter } from "next/navigation";
+import { addQueryParams } from "~~/utils/urlParams";
 
 const HomePage = () => {
   const { t } = useLanguage();
+  const { address } = useAccount();
+  const router = useRouter();
+  const { copyToClipboard, isCopiedToClipboard } = useCopyToClipboard();
   const [agents, setAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inviteCount, setInviteCount] = useState<number | null>(null);
+  const [loadingInviteCount, setLoadingInviteCount] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // 获取合约实例
   const { data: agentStoreContract } = useScaffoldContract({
     contractName: "AgentStore",
+  });
+
+  // 读取注册费用
+  const { data: registrationFee } = useScaffoldReadContract({
+    contractName: "AgentStore",
+    functionName: "registrationFee",
   });
 
   // 获取所有上架的 Agents
@@ -96,6 +113,94 @@ const HomePage = () => {
     };
   }, [agentIdsStable, agentStoreContract?.address, allAgentIds, isLoadingIds]);
 
+  // 查询邀请人数（基于 AgentStore 的 referrer）
+  useEffect(() => {
+    const fetchInviteCount = async () => {
+      if (!address || !agentStoreContract) {
+        setInviteCount(null);
+        return;
+      }
+
+      try {
+        setLoadingInviteCount(true);
+        
+        // 1. 计算钱包地址的 MD5 并取最后 8 位
+        const md5Hash = CryptoJS.MD5(address.toLowerCase()).toString();
+        const referrerCode = md5Hash.slice(-8);
+        console.log("钱包地址:", address);
+        console.log("MD5 哈希:", md5Hash);
+        console.log("推荐码 (最后8位):", referrerCode);
+
+        // 2. 调用 AgentStore 合约获取该推荐码的所有 Agent IDs
+        const agentIds = await agentStoreContract.read.getAgentsByReferrer([referrerCode]) as bigint[];
+        
+        if (!agentIds || agentIds.length === 0) {
+          setInviteCount(0);
+          setLoadingInviteCount(false);
+          return;
+        }
+
+        console.log("推荐码对应的 Agent IDs:", agentIds);
+
+        // 3. 批量查询每个 Agent 的 owner，并去重
+        const ownerPromises = agentIds.map(async (agentId) => {
+          try {
+            const fullInfo = await agentStoreContract.read.getAgentFullInfo([agentId]);
+            const [listing] = fullInfo;
+            return listing.owner.toLowerCase();
+          } catch (error) {
+            console.error(`查询 Agent ${agentId} 的 owner 失败:`, error);
+            return null;
+          }
+        });
+
+        const owners = await Promise.all(ownerPromises);
+        const uniqueOwners = new Set(owners.filter(owner => owner !== null));
+        
+        console.log("去重后的邀请人数:", uniqueOwners.size);
+        setInviteCount(uniqueOwners.size);
+      } catch (error) {
+        console.error("查询邀请人数失败:", error);
+        setInviteCount(null);
+      } finally {
+        setLoadingInviteCount(false);
+      }
+    };
+
+    fetchInviteCount();
+  }, [address, agentStoreContract?.address]);
+
+  // 计算邀请链接
+  const inviteLink = useMemo(() => {
+    if (!address) return "";
+    const md5Hash = CryptoJS.MD5(address.toLowerCase()).toString();
+    const referrerCode = md5Hash.slice(-8);
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    return `${baseUrl}/home?referrer=${referrerCode}`;
+  }, [address]);
+
+  // 获取各项积分（useTotalPoints 内部已经调用了所有单独的 hooks，所以只需要调用一次）
+  const { totalPoints, breakdown, isLoading: isLoadingTotalPoints } = useTotalPoints(address);
+  
+  // 从 breakdown 中获取各项积分，避免重复查询
+  const selfMintSBTPoints = breakdown.selfMintSBT;
+  const selfCreateAgentPoints = breakdown.selfCreateAgent;
+  const referMintSBTPoints = breakdown.referMintSBT;
+  const referCreateAgentPoints = breakdown.referCreateAgent;
+  
+  // 使用 isLoadingTotalPoints 作为所有积分的加载状态
+  const isLoadingSelfMintSBT = isLoadingTotalPoints;
+  const isLoadingSelfCreateAgent = isLoadingTotalPoints;
+  const isLoadingReferMintSBT = isLoadingTotalPoints;
+  const isLoadingReferCreateAgent = isLoadingTotalPoints;
+
+  // 处理复制邀请链接
+  const handleCopyInviteLink = async () => {
+    if (inviteLink) {
+      await copyToClipboard(inviteLink);
+    }
+  };
+
   return (
     <div className="relative flex items-center flex-col grow pt-10 pb-10 min-h-screen bg-gradient-to-br from-[#1A110A] via-[#261A10] to-[#1A110A] overflow-hidden">
       {/* 背景装饰元素 */}
@@ -145,36 +250,122 @@ const HomePage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                 </svg>
                 {t("points")}
+                {address && (
+                  <span className="ml-2 flex items-center">
+                    {isLoadingTotalPoints ? (
+                      <span className="inline-flex items-center justify-center w-5 h-5">
+                        <span className="loading loading-spinner loading-xs text-white/60"></span>
+                      </span>
+                    ) : (
+                      <span className="relative inline-flex items-center justify-center min-w-[2rem] h-6 px-2 rounded-full bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm border border-white/30 shadow-sm">
+                        <span className="text-xs font-bold text-white leading-none">
+                          {totalPoints.toLocaleString()}
+                        </span>
+                      </span>
+                    )}
+                  </span>
+                )}
               </span>
             </button>
-            <button className="group relative btn rounded-xl bg-gradient-to-r from-[#FF6B00] via-[#FF7A00] to-[#FF8C00] hover:from-[#FF8C00] hover:via-[#FF9A00] hover:to-[#FFA040] text-white border-0 transition-all duration-300 shadow-lg shadow-[#FF6B00]/30 hover:shadow-[#FF6B00]/50 px-6 py-3 font-semibold overflow-hidden">
+            <button 
+              onClick={() => setShowInviteModal(true)}
+              className="group relative btn rounded-xl bg-gradient-to-r from-[#FF6B00] via-[#FF7A00] to-[#FF8C00] hover:from-[#FF8C00] hover:via-[#FF9A00] hover:to-[#FFA040] text-white border-0 transition-all duration-300 shadow-lg shadow-[#FF6B00]/30 hover:shadow-[#FF6B00]/50 px-6 py-3 font-semibold overflow-hidden"
+            >
               <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
               <span className="relative z-10 flex items-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                 </svg>
-                Invite friends
+                {t("inviteFriends")}
               </span>
             </button>
           </div>
-          <div className="group relative card bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl p-6 shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 transition-all duration-300">
-            {/* 装饰性渐变背景 */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B00]/5 via-transparent to-[#FF8C00]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"></div>
-            
-            {/* 顶部装饰线 */}
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#FF6B00]/40 to-transparent rounded-t-2xl"></div>
-            
-            <div className="relative text-sm text-white/80 space-y-3">
-              <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#FF6B00]/5 transition-colors">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#FF6B00] shadow-lg shadow-[#FF6B00]/50"></div>
-                <p className="font-medium">{t("newUserOpenBoxReward")}</p>
-              </div>
-              <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#FF6B00]/5 transition-colors">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#FF6B00] shadow-lg shadow-[#FF6B00]/50"></div>
-                <p className="font-medium">{t("newUserCreateAgentReward")}</p>
+
+          {/* 积分详情卡片 */}
+          {address && (
+            <div className="group relative card bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl p-6 shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 transition-all duration-300 mb-6">
+              {/* 装饰性渐变背景 */}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B00]/5 via-transparent to-[#FF8C00]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"></div>
+              
+              {/* 顶部装饰线 */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#FF6B00]/40 to-transparent rounded-t-2xl"></div>
+              
+              <div className="relative">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-[#FF6B00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  {t("pointsDetails")}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 自己mintSBT积分 */}
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C00]/5 border border-[#FF6B00]/20 hover:border-[#FF6B00]/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-white/70">{t("selfMintSBT")}</span>
+                      {isLoadingSelfMintSBT ? (
+                        <span className="loading loading-spinner loading-xs text-[#FF6B00]"></span>
+                      ) : (
+                        <span className="text-lg font-bold text-[#FF6B00]">{selfMintSBTPoints.toLocaleString()}</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-white/50">{t("selfMintSBTPointsDesc")}</div>
+                  </div>
+
+                  {/* 自己创建Agent积分 */}
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C00]/5 border border-[#FF6B00]/20 hover:border-[#FF6B00]/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-white/70">{t("selfCreateAgent")}</span>
+                      {isLoadingSelfCreateAgent ? (
+                        <span className="loading loading-spinner loading-xs text-[#FF6B00]"></span>
+                      ) : (
+                        <span className="text-lg font-bold text-[#FF6B00]">{selfCreateAgentPoints.toLocaleString()}</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-white/50">{t("selfCreateAgentPointsDesc")}</div>
+                  </div>
+
+                  {/* 推荐别人mintSBT积分 */}
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C00]/5 border border-[#FF6B00]/20 hover:border-[#FF6B00]/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-white/70">{t("referMintSBT")}</span>
+                      {isLoadingReferMintSBT ? (
+                        <span className="loading loading-spinner loading-xs text-[#FF6B00]"></span>
+                      ) : (
+                        <span className="text-lg font-bold text-[#FF6B00]">{referMintSBTPoints.toLocaleString()}</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-white/50">{t("referMintSBTPointsDesc")}</div>
+                  </div>
+
+                  {/* 推荐别人创建Agent积分 */}
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C00]/5 border border-[#FF6B00]/20 hover:border-[#FF6B00]/40 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-white/70">{t("referCreateAgent")}</span>
+                      {isLoadingReferCreateAgent ? (
+                        <span className="loading loading-spinner loading-xs text-[#FF6B00]"></span>
+                      ) : (
+                        <span className="text-lg font-bold text-[#FF6B00]">{referCreateAgentPoints.toLocaleString()}</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-white/50">{t("referCreateAgentPointsDesc")}</div>
+                  </div>
+                </div>
+
+                {/* 总积分 */}
+                <div className="mt-4 pt-4 border-t border-[#FF6B00]/20">
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-semibold text-white">{t("totalPoints")}</span>
+                    {isLoadingTotalPoints ? (
+                      <span className="loading loading-spinner loading-sm text-[#FF6B00]"></span>
+                    ) : (
+                      <span className="text-2xl font-bold text-[#FF6B00]">{totalPoints.toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* 主操作部分 */}
@@ -293,13 +484,18 @@ const HomePage = () => {
                       </div>
                       <div className="flex-1">
                         <h3 className="text-2xl font-bold text-white mb-2">{t("createAgent")}</h3>
-                        <div className="text-3xl font-bold text-[#FF6B00]">1 BNB</div>
+                        <div className="text-3xl font-bold text-[#FF6B00]">
+                          {registrationFee ? `${formatEther(registrationFee)} BNB` : "Loading..."}
+                        </div>
                       </div>
                     </div>
 
                     {/* 右侧：按钮 */}
                     <div className="w-full md:w-auto md:flex-shrink-0">
-                      <button className="group/btn relative btn btn-lg w-full md:w-48 rounded-xl bg-gradient-to-r from-[#FF6B00] via-[#FF7A00] to-[#FF8C00] hover:from-[#FF8C00] hover:via-[#FF9A00] hover:to-[#FFA040] text-white border-0 transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60 font-bold text-base px-6 py-4 overflow-hidden">
+                      <button 
+                        onClick={() => router.push(addQueryParams("/agent-store/register"))}
+                        className="group/btn relative btn btn-lg w-full md:w-48 rounded-xl bg-gradient-to-r from-[#FF6B00] via-[#FF7A00] to-[#FF8C00] hover:from-[#FF8C00] hover:via-[#FF9A00] hover:to-[#FFA040] text-white border-0 transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60 font-bold text-base px-6 py-4 overflow-hidden"
+                      >
                         <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000"></span>
                         <span className="relative z-10 flex items-center justify-center gap-2">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,6 +572,84 @@ const HomePage = () => {
           </div>
         </div>
       </div>
+
+      {/* 邀请弹窗 */}
+      {showInviteModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowInviteModal(false);
+            }
+          }}
+        >
+          <div className="relative w-full max-w-md mx-4">
+            <div className="bg-gradient-to-br from-[#1A110A] via-[#261A10] to-[#1A110A] border border-[#FF6B00]/30 rounded-2xl shadow-2xl overflow-hidden">
+              {/* 顶部装饰线 */}
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#FF6B00]/60 to-transparent"></div>
+              
+              {/* 关闭按钮 */}
+              <button
+                onClick={() => setShowInviteModal(false)}
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 border border-white/20 transition-colors z-10"
+              >
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* 弹窗内容 */}
+              <div className="p-6 pt-8">
+                <h3 className="text-2xl font-bold text-white mb-2">{t("inviteModalTitle")}</h3>
+                <p className="text-sm text-white/70 mb-6">{t("inviteModalDescription")}</p>
+                
+                {!address ? (
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                    <p className="text-sm text-white/70 text-center">{t("connectWalletToGenerate")}</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* 邀请链接显示区域 */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-white/80 mb-2">{t("inviteLink")}</label>
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
+                        <input
+                          type="text"
+                          value={inviteLink}
+                          readOnly
+                          className="flex-1 bg-transparent text-white text-sm outline-none break-all"
+                        />
+                        <button
+                          onClick={handleCopyInviteLink}
+                          disabled={!inviteLink}
+                          className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#FF6B00]/20 hover:bg-[#FF6B00]/30 border border-[#FF6B00]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                          title={t("copyLink")}
+                        >
+                          {isCopiedToClipboard ? (
+                            <CheckCircleIcon className="w-5 h-5 text-[#FF6B00]" />
+                          ) : (
+                            <DocumentDuplicateIcon className="w-5 h-5 text-[#FF6B00]" />
+                          )}
+                        </button>
+                      </div>
+                      {isCopiedToClipboard && (
+                        <p className="mt-2 text-xs text-[#FF6B00]">{t("copiedToClipboard")}</p>
+                      )}
+                    </div>
+
+                    {/* 提示信息 */}
+                    <div className="p-4 rounded-xl bg-[#FF6B00]/10 border border-[#FF6B00]/20">
+                      <p className="text-xs text-white/70 leading-relaxed">
+                        {t("inviteRewardTip")}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

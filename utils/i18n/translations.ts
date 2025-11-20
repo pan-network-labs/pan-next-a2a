@@ -42,6 +42,8 @@ export const translations = {
     tokenId: "Token ID:",
     paymentAmount: "Payment Amount:",
     recipientAddress: "Recipient Address:",
+    referrerCode: "Referrer Code:",
+    noReferrer: "None",
     transactionHash: "Transaction Hash:",
     paymentTime: "Payment Time:",
     sbtTip: "💡 Tip: SBT is a payment certificate saved to your wallet. You can view all your SBTs below.",
@@ -154,6 +156,27 @@ export const translations = {
     serviceMarketplace: "Service Marketplace (Agent Plaza Hot)",
     noAgentsAvailable: "No Agents available",
     tryAgent: "Try Agent",
+    
+    // Invite Modal
+    inviteModalTitle: "Invite Friends",
+    inviteModalDescription: "Share your invitation link to invite friends to join PAN Network",
+    connectWalletToGenerate: "Please connect your wallet to generate an invitation link",
+    inviteLink: "Invite Link",
+    copyLink: "Copy Link",
+    copiedToClipboard: "Copied to clipboard!",
+    inviteRewardTip: "After friends register through your invitation link, you will receive corresponding referral rewards.",
+    
+    // Points Details
+    pointsDetails: "Points Details",
+    selfMintSBT: "Self Mint SBT",
+    selfMintSBTPointsDesc: "N-level ×50 + R-level ×700 + S-level ×10000",
+    selfCreateAgent: "Self Create Agent",
+    selfCreateAgentPointsDesc: "2200 points per creation",
+    referMintSBT: "Refer Mint SBT",
+    referMintSBTPointsDesc: "10 points per referral",
+    referCreateAgent: "Refer Create Agent",
+    referCreateAgentPointsDesc: "2200 points per referral",
+    totalPoints: "Total Points",
   },
   "zh-TW": {
     // Header
@@ -196,6 +219,8 @@ export const translations = {
     tokenId: "Token ID：",
     paymentAmount: "付款金額：",
     recipientAddress: "收款地址：",
+    referrerCode: "推薦碼：",
+    noReferrer: "無",
     transactionHash: "交易哈希：",
     paymentTime: "付款時間：",
     sbtTip: "💡 提示：SBT是付款憑證，已保存到你的錢包。你可以在下方「查看我的SBT」中查看所有SBT。",
@@ -308,6 +333,27 @@ export const translations = {
     serviceMarketplace: "服務市場 (Agent Plaza 熱門)",
     noAgentsAvailable: "暫無 Agent",
     tryAgent: "試用 Agent",
+    
+    // Invite Modal
+    inviteModalTitle: "邀請好友",
+    inviteModalDescription: "分享您的邀請連結，邀請好友加入 PAN Network",
+    connectWalletToGenerate: "請先連接錢包以生成邀請連結",
+    inviteLink: "邀請連結",
+    copyLink: "複製連結",
+    copiedToClipboard: "已複製到剪貼簿！",
+    inviteRewardTip: "好友通過您的邀請連結註冊後，您將獲得相應的邀請獎勵。",
+    
+    // Points Details
+    pointsDetails: "積分詳情",
+    selfMintSBT: "自己mintSBT",
+    selfMintSBTPointsDesc: "N級×50 + R級×700 + S級×10000",
+    selfCreateAgent: "自己創建Agent",
+    selfCreateAgentPointsDesc: "每次創建獲得 2200 積分",
+    referMintSBT: "推薦別人mintSBT",
+    referMintSBTPointsDesc: "每次推薦獲得 10 積分",
+    referCreateAgent: "推薦別人創建Agent",
+    referCreateAgentPointsDesc: "每次推薦獲得 2200 積分",
+    totalPoints: "總積分",
   },
 };
 

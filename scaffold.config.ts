@@ -30,11 +30,9 @@ const scaffoldConfig = {
   rpcOverrides: {
     // Example:
     // [chains.mainnet.id]: "https://mainnet.rpc.buidlguidl.com",
-    // BSC Testnet: 优先使用环境变量配置的 RPC，否则使用 Alchemy RPC（如果有效）
+    // BSC Testnet: 默认使用 Alchemy RPC，可通过环境变量覆盖
     [chains.bscTestnet.id]: process.env.NEXT_PUBLIC_BSC_TESTNET_RPC || 
-      (process.env.NEXT_PUBLIC_ALCHEMY_API_KEY && process.env.NEXT_PUBLIC_ALCHEMY_API_KEY !== DEFAULT_ALCHEMY_API_KEY
-        ? `https://bnb-testnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
-        : "https://data-seed-prebsc-1-s1.binance.org:8545"), // 如果 Alchemy Key 无效，使用 Binance 官方 RPC
+      `https://bnb-testnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || DEFAULT_ALCHEMY_API_KEY}`,
   },
 
   // This is ours WalletConnect's default project ID.

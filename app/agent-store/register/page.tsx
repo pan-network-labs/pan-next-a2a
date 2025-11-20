@@ -2,12 +2,14 @@
 
 import type { NextPage } from "next";
 import { useState } from "react";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldWriteContract, useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { useRouter } from "next/navigation";
 import { addQueryParams } from "~~/utils/urlParams";
 import { LinkWithParams } from "~~/components/LinkWithParams";
 import { useLanguage } from "~~/utils/i18n/LanguageContext";
 import { useAgentCard } from "~~/hooks/useAgentCard";
+import { formatEther, parseEther } from "viem";
+import { getQueryParam } from "~~/utils/urlParams";
 
 const RegisterAgent: NextPage = () => {
   const router = useRouter();
@@ -26,6 +28,12 @@ const RegisterAgent: NextPage = () => {
 
   const { writeContractAsync } = useScaffoldWriteContract({
     contractName: "AgentStore",
+  });
+
+  // 读取注册费用
+  const { data: registrationFee } = useScaffoldReadContract({
+    contractName: "AgentStore",
+    functionName: "registrationFee",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,16 +60,26 @@ const RegisterAgent: NextPage = () => {
         throw new Error(t("agentCardInvalid") || "Invalid Agent Card. Please check the URL.");
       }
 
-      // 调用合约注册（只需要 agentCardLink）
+      // 检查注册费用
+      if (!registrationFee) {
+        throw new Error(t("registrationFeeNotAvailable") || "Registration fee not available");
+      }
+
+      // 从 URL 参数中获取 referrer
+      const referrerCode = getQueryParam("referrer") || "";
+
+      // 调用合约注册（需要支付注册费用，并传递 referrer）
       await writeContractAsync({
         functionName: "registerAndListAgent",
         args: [
           formData.agentCardLink,
+          referrerCode,
         ] as any,
+        value: registrationFee,
       });
 
       // 成功后跳转
-      router.push(addQueryParams("/agent-store"));
+      router.push(addQueryParams("/home"));
     } catch (error: any) {
       console.error("Registration error:", error);
       setValidationError(error.message || t("registrationFailed") || "Registration failed");
@@ -75,7 +93,7 @@ const RegisterAgent: NextPage = () => {
       <div className="flex items-center flex-col grow pt-10 pb-10 bg-gradient-to-br from-[#1A110A] via-[#261A10] to-[#1A110A] min-h-screen animate-gradient">
         <div className="px-5 w-full max-w-3xl">
           <div className="mb-8">
-            <LinkWithParams href="/agent-store" className="btn btn-sm mb-4 bg-[#261A10]/50 backdrop-blur-sm border-[#FF6B00]/20 text-white hover:bg-[#FF6B00]/20 transition-all">
+            <LinkWithParams href="/home" className="btn btn-sm mb-4 bg-[#261A10]/50 backdrop-blur-sm border-[#FF6B00]/20 text-white hover:bg-[#FF6B00]/20 transition-all">
               {t("backToStore")}
             </LinkWithParams>
             <h1 className="text-4xl font-bold mb-3 animate-text-shimmer">
@@ -84,6 +102,33 @@ const RegisterAgent: NextPage = () => {
             <p className="text-white/70 mt-3 text-lg">
               {t("registerDescription")}
             </p>
+            {/* 显示注册费用和推荐人信息 */}
+            <div className="mt-4 space-y-3">
+              {registrationFee && (
+                <div className="p-4 rounded-lg bg-gradient-to-r from-[#FF6B00]/20 to-[#FF8C00]/20 border border-[#FF6B00]/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/80 text-base font-medium">
+                      {t("registrationFee") || "Registration Fee"}:
+                    </span>
+                    <span className="text-2xl font-bold text-[#FF6B00]">
+                      {formatEther(registrationFee)} BNB
+                    </span>
+                  </div>
+                </div>
+              )}
+              {getQueryParam("referrer") && (
+                <div className="p-3 rounded-lg bg-gradient-to-r from-[#1A110A]/50 to-[#261A10]/50 border border-[#FF6B00]/20">
+                  <div className="flex items-center gap-2 text-sm text-white/70">
+                    <svg className="w-4 h-4 text-[#FF6B00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    <span>
+                      {t("referrerCode") || "Referrer Code"}: <span className="text-[#FF6B00] font-mono">{getQueryParam("referrer")}</span>
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="card bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 animate-border-glow">
@@ -169,7 +214,7 @@ const RegisterAgent: NextPage = () => {
                 {/* 提交按钮 */}
                 <div className="flex gap-4 pt-4">
                   <LinkWithParams 
-                    href="/agent-store" 
+                    href="/home" 
                     className="btn flex-1 h-14 text-base rounded-lg bg-[#1A110A]/50 border-2 border-[#261A10]/50 text-white hover:bg-[#261A10]/70 hover:border-[#FF6B00]/50 transition-all duration-300"
                   >
                     {t("cancel")}

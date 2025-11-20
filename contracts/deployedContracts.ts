@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   97: {
     AgentStore: {
-      address: "0xAF4dE0dD77501017cB41E56644b34eAd21d114b7",
+      address: "0xf4Be5EFc6d1bBdC94AD1Ec77ccaed4441c952244",
       abi: [
         {
           inputs: [
@@ -29,6 +29,22 @@ const deployedContracts = {
           ],
           stateMutability: "nonpayable",
           type: "constructor",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "account",
+              type: "address",
+            },
+          ],
+          name: "AddressInsufficientBalance",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "FailedInnerCall",
+          type: "error",
         },
         {
           inputs: [
@@ -212,6 +228,11 @@ const deployedContracts = {
                   name: "usageCount",
                   type: "uint256",
                 },
+                {
+                  internalType: "string",
+                  name: "referrer",
+                  type: "string",
+                },
               ],
               internalType: "struct AgentStore.AgentListing",
               name: "listing",
@@ -253,6 +274,44 @@ const deployedContracts = {
               internalType: "uint256",
               name: "feedbackCount",
               type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "agentId",
+              type: "uint256",
+            },
+          ],
+          name: "getAgentReferrer",
+          outputs: [
+            {
+              internalType: "string",
+              name: "referrer",
+              type: "string",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "string",
+              name: "referrer",
+              type: "string",
+            },
+          ],
+          name: "getAgentsByReferrer",
+          outputs: [
+            {
+              internalType: "uint256[]",
+              name: "agentIds",
+              type: "uint256[]",
             },
           ],
           stateMutability: "view",
@@ -324,6 +383,11 @@ const deployedContracts = {
               name: "usageCount",
               type: "uint256",
             },
+            {
+              internalType: "string",
+              name: "referrer",
+              type: "string",
+            },
           ],
           stateMutability: "view",
           type: "function",
@@ -358,7 +422,36 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "string",
+              name: "",
+              type: "string",
+            },
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "referrerAgents",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "string",
               name: "agentCardLink",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "referrer",
               type: "string",
             },
           ],
@@ -370,7 +463,20 @@ const deployedContracts = {
               type: "uint256",
             },
           ],
-          stateMutability: "nonpayable",
+          stateMutability: "payable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "registrationFee",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
           type: "function",
         },
         {
@@ -415,6 +521,19 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_fee",
+              type: "uint256",
+            },
+          ],
+          name: "setRegistrationFee",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -497,13 +616,20 @@ const deployedContracts = {
           stateMutability: "view",
           type: "function",
         },
+        {
+          inputs: [],
+          name: "withdraw",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
       ],
       inheritedFunctions: {
         owner: "@openzeppelin/contracts/access/Ownable.sol",
         renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
         transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
       },
-      deployedOnBlock: 72712201,
+      deployedOnBlock: 73686512,
     },
     IdentityRegistry: {
       address: "0x8b2fA898fd4D0f7893B1dfb42b690b3352670dEf",

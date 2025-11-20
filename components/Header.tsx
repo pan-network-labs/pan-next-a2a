@@ -22,14 +22,9 @@ export const HeaderMenuLinks = () => {
 
   const menuLinks: HeaderMenuLink[] = [
     {
-      label: t("agentStore"),
-      href: "/agent-store",
+      label: t("home"),
+      href: "/home",
       icon: <ShoppingBagIcon className="h-4 w-4" />,
-    },
-    {
-      label: "Explore",
-      href: "/explore",
-      icon: <Bars3Icon className="h-4 w-4" />,
     },
     // Debug Contracts - 暂时隐藏，保留代码以便后续恢复
     // {
@@ -42,8 +37,8 @@ export const HeaderMenuLinks = () => {
   return (
     <>
       {menuLinks.map(({ label, href, icon }) => {
-        // 如果路径是 / 或 /agent-store，Agent Store 按钮应该被选中
-        const isActive = pathname === href || (href === "/agent-store" && pathname === "/") || (href === "/explore" && pathname === "/explore");
+        // 如果路径是 /home，Home 按钮应该被选中
+        const isActive = pathname === href || (href === "/home" && pathname === "/");
         return (
           <li key={href}>
             <LinkWithParams

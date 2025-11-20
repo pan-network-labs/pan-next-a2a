@@ -12,6 +12,7 @@ import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { useLanguage } from "~~/utils/i18n/LanguageContext";
 import { useAgentCard } from "~~/hooks/useAgentCard";
 import { AgentCardDetail } from "~~/components/AgentCard/AgentCardDetail";
+import { getQueryParam } from "~~/utils/urlParams";
 
 // SBT卡片组件
 const SBTCard = ({ 
@@ -54,6 +55,7 @@ const SBTCard = ({
           recipient: info.recipient,
           timestamp: info.timestamp,
           description: info.description,
+          referrer: info.referrer || "",
           rarity: rarityNumber, // 0 = N, 1 = R, 2 = S
         });
       } catch (e) {
@@ -124,12 +126,14 @@ const SBTCard = ({
       </div>
       <div className="space-y-2 text-sm mt-3">
         <div className="flex justify-between">
-          <span className="text-white/70">{t("paymentAmount")}</span>
-          <span className="text-white">{formatEther(sbtInfo.amount)} ETH</span>
-        </div>
-        <div className="flex justify-between">
           <span className="text-white/70">{t("recipientAddress")}</span>
           <Address address={sbtInfo.recipient} />
+        </div>
+        <div className="flex justify-between">
+          <span className="text-white/70">{t("referrerCode")}</span>
+          <span className="text-white/80 text-xs font-mono">
+            {sbtInfo.referrer && sbtInfo.referrer.trim() ? sbtInfo.referrer : t("noReferrer")}
+          </span>
         </div>
         <div className="flex justify-between">
           <span className="text-white/70">{t("paymentTime")}</span>
@@ -623,6 +627,71 @@ const AgentDetail = () => {
           "X-PAYMENT": paymentHeaderValue,
         };
         
+        // 从 URL 参数中获取 referrer，并添加到请求体的 ext.referrer 字段
+        const referrerCode = getQueryParam("referrer");
+        console.log("🔍 [Referrer Debug] 从 URL 获取的 referrer 参数:", referrerCode);
+        console.log("🔍 [Referrer Debug] 当前 URL:", typeof window !== "undefined" ? window.location.href : "N/A");
+        console.log("🔍 [Referrer Debug] 请求方法:", method);
+        
+        // 修改请求体，添加 ext.referrer 字段
+        if (method === "POST" || method === "PUT") {
+          try {
+            // 解析现有的请求体
+            let bodyData: any = {};
+            if (requestConfig.body) {
+              bodyData = JSON.parse(requestConfig.body as string);
+              console.log("🔍 [Referrer Debug] 原始请求体:", bodyData);
+            }
+            
+            // 添加 ext 对象（如果不存在）
+            if (!bodyData.ext) {
+              bodyData.ext = {};
+            }
+            
+            // 如果有 referrer，添加到 ext.referrer
+            if (referrerCode && referrerCode.trim()) {
+              bodyData.ext.referrer = referrerCode.trim();
+              console.log("✅ [Referrer Debug] 添加 ext.referrer 到请求体:", referrerCode.trim());
+            } else {
+              console.warn("⚠️ [Referrer Debug] referrer 为空或无效:", referrerCode);
+            }
+            
+            // 更新请求体
+            requestConfig.body = JSON.stringify(bodyData);
+            console.log("🔍 [Referrer Debug] 更新后的请求体:", requestConfig.body);
+          } catch (e) {
+            console.error("❌ [Referrer Debug] 解析或修改请求体失败:", e);
+            // 如果解析失败，创建一个新的请求体
+            const bodyData: any = {};
+            if (referrerCode && referrerCode.trim()) {
+              bodyData.ext = { referrer: referrerCode.trim() };
+              console.log("✅ [Referrer Debug] 创建新请求体，包含 ext.referrer:", referrerCode.trim());
+            }
+            requestConfig.body = JSON.stringify(bodyData);
+          }
+        } else if (method === "GET" || method === "DELETE") {
+          // GET/DELETE 请求，referrer 已经在 URL 参数中
+          // 但为了确保 Agent 后端能读取到，我们也可以将 referrer 添加到请求体中（如果 Agent 支持）
+          console.log("🔍 [Referrer Debug] GET/DELETE 请求，referrer 在 URL 参数中:", referrerCode);
+          console.log("🔍 [Referrer Debug] 目标 URL:", targetUrl);
+          
+          // 对于 GET/DELETE 请求，如果 Agent 后端期望从请求体读取，我们也添加到请求体中
+          // 注意：某些 Agent 后端可能不支持 GET 请求的 body，但我们可以尝试
+          if (referrerCode && referrerCode.trim()) {
+            try {
+              const bodyData: any = {
+                ext: {
+                  referrer: referrerCode.trim()
+                }
+              };
+              requestConfig.body = JSON.stringify(bodyData);
+              console.log("✅ [Referrer Debug] GET/DELETE 请求，也添加到请求体:", requestConfig.body);
+            } catch (e) {
+              console.error("❌ [Referrer Debug] GET/DELETE 请求添加 referrer 到 body 失败:", e);
+            }
+          }
+        }
+        
         console.log("重新发送请求，包含X-PAYMENT头:");
         console.log("  - 原始交易哈希:", txHash);
         console.log("  - 编码后的值:", paymentHeaderValue);
@@ -754,8 +823,8 @@ const AgentDetail = () => {
         args: [agentId],
       });
       alert(t("agentUnlistedSuccess"));
-      // 跳转回商店页面
-      window.location.href = "/agent-store";
+      // 跳转回首页
+      window.location.href = "/home";
     } catch (error: any) {
       console.error("Unlist agent error:", error);
       const errorMessage = error.message || error.shortMessage || error.details || "";
@@ -825,7 +894,7 @@ const AgentDetail = () => {
     <>
       <div className="flex items-center flex-col grow pt-10 pb-10">
         <div className="px-5 w-full max-w-4xl">
-          <LinkWithParams href="/agent-store" className="btn btn-sm mb-4 rounded-lg bg-[#1A110A]/50 border-2 border-[#261A10]/50 text-white hover:bg-[#261A10]/70 hover:border-[#FF6B00]/50 transition-all duration-300">
+          <LinkWithParams href="/home" className="btn btn-sm mb-4 rounded-lg bg-[#1A110A]/50 border-2 border-[#261A10]/50 text-white hover:bg-[#261A10]/70 hover:border-[#FF6B00]/50 transition-all duration-300">
             {t("backToStore")}
           </LinkWithParams>
 
@@ -847,6 +916,16 @@ const AgentDetail = () => {
                 <div className="card-body">
                   <h2 className="card-title text-xl text-white mb-4">{t("agentOwner") || "Owner"}</h2>
                   <Address address={listing.owner} />
+                  
+                  {/* 显示推荐人信息 */}
+                  {listing.referrer && listing.referrer.trim() && (
+                    <div className="mt-4 pt-4 border-t border-[#FF6B00]/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/70 text-sm">{t("referrerCode") || "Referrer Code"}:</span>
+                        <span className="text-[#FF6B00] font-mono text-sm">{listing.referrer}</span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="card-actions justify-between mt-6">
                     {/* 所有者操作按钮 */}

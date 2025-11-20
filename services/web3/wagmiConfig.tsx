@@ -17,7 +17,7 @@ export const wagmiConfig = createConfig({
   client({ chain }) {
     let rpcFallbacks: ReturnType<typeof http>[] = [];
 
-    // BSC Testnet (chainId: 97) 的特殊处理：添加多个 fallback RPC
+    // BSC Testnet (chainId: 97) 的特殊处理：默认优先使用 Alchemy
     if (chain.id === 97) {
       const rpcOverrideUrl = (scaffoldConfig.rpcOverrides as ScaffoldConfig["rpcOverrides"])?.[chain.id];
       const alchemyHttpUrl = getAlchemyHttpUrl(chain.id);
@@ -28,29 +28,38 @@ export const wagmiConfig = createConfig({
         http("https://data-seed-prebsc-1-s1.binance.org:8545"),
         http("https://data-seed-prebsc-2-s1.binance.org:8545"),
         http("https://bsc-testnet-rpc.publicnode.com"),
-        http("https://1rpc.io/bnb/testnet"),
       ];
       
-      if (rpcOverrideUrl) {
-        // 如果配置了自定义 RPC（通常是 Alchemy 或环境变量指定的 RPC），优先使用
+      // 始终优先使用 Alchemy（如果可用）
+      if (alchemyHttpUrl) {
+        if (rpcOverrideUrl && rpcOverrideUrl.includes("alchemy.com")) {
+          // 如果 rpcOverrideUrl 已经是 Alchemy，直接使用它
+          rpcFallbacks = [
+            http(rpcOverrideUrl),
+            // 添加公共 RPC 作为 fallback
+            ...publicRpcs,
+          ];
+        } else {
+          // 优先使用 Alchemy，即使有 rpcOverrideUrl（除非明确指定了其他 RPC）
+          rpcFallbacks = [
+            http(alchemyHttpUrl),
+            // 如果配置了非 Alchemy 的 RPC，也添加到 fallback
+            ...(rpcOverrideUrl && !rpcOverrideUrl.includes("alchemy.com") 
+              ? [http(rpcOverrideUrl)] 
+              : []),
+            // 添加公共 RPC 作为 fallback
+            ...publicRpcs,
+          ];
+        }
+      } else if (rpcOverrideUrl) {
+        // 如果 Alchemy 不可用，使用配置的 RPC
         rpcFallbacks = [
           http(rpcOverrideUrl),
-          // 如果配置的 RPC 不是 Alchemy，且 Alchemy 可用，也添加到 fallback
-          ...(alchemyHttpUrl && !rpcOverrideUrl.includes("alchemy.com") 
-            ? [http(alchemyHttpUrl)] 
-            : []),
-          // 添加公共 RPC 作为 fallback
-          ...publicRpcs,
-        ];
-      } else if (alchemyHttpUrl) {
-        // 如果没有配置自定义 RPC，但 Alchemy 可用，优先使用 Alchemy
-        rpcFallbacks = [
-          http(alchemyHttpUrl),
           // 添加公共 RPC 作为 fallback
           ...publicRpcs,
         ];
       } else {
-        // 如果没有配置，使用公共 RPC
+        // 如果都没有配置，使用公共 RPC
         rpcFallbacks = publicRpcs;
       }
     } else {
