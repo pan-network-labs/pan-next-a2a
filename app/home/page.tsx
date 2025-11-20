@@ -413,7 +413,10 @@ const HomePage = () => {
 
                     {/* 右侧：按钮 */}
                     <div className="w-full md:w-auto md:flex-shrink-0">
-                      <button className="group/btn relative btn btn-lg w-full md:w-48 rounded-xl bg-gradient-to-r from-[#FF6B00] via-[#FF7A00] to-[#FF8C00] hover:from-[#FF8C00] hover:via-[#FF9A00] hover:to-[#FFA040] text-white border-0 transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60 font-bold text-base px-6 py-4 overflow-hidden">
+                      <button 
+                        onClick={() => router.push(addQueryParams("/agent-store/4"))}
+                        className="group/btn relative btn btn-lg w-full md:w-48 rounded-xl bg-gradient-to-r from-[#FF6B00] via-[#FF7A00] to-[#FF8C00] hover:from-[#FF8C00] hover:via-[#FF9A00] hover:to-[#FFA040] text-white border-0 transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60 font-bold text-base px-6 py-4 overflow-hidden"
+                      >
                         <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000"></span>
                         <span className="relative z-10 flex items-center justify-center gap-2">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
