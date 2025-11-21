@@ -13,6 +13,7 @@ import { useLanguage } from "~~/utils/i18n/LanguageContext";
 import { useAgentCard } from "~~/hooks/useAgentCard";
 import { AgentCardDetail } from "~~/components/AgentCard/AgentCardDetail";
 import { getQueryParam } from "~~/utils/urlParams";
+import { BoxOpeningAnimation } from "~~/components/BoxOpeningAnimation";
 
 // SBT卡片组件
 const SBTCard = ({ 
@@ -170,6 +171,8 @@ const AgentDetail = () => {
   // mintedSBT 状态已移除：用户直接支付给 Agent，Agent 自行处理 SBT 铸造
   const [showMySBTs, setShowMySBTs] = useState(false);
   const [isUnlisting, setIsUnlisting] = useState(false);
+  const [showBoxAnimation, setShowBoxAnimation] = useState(false);
+  const [animationImageUrl, setAnimationImageUrl] = useState<string | undefined>(undefined);
   const { address } = useAccount();
   const { targetNetwork } = useTargetNetwork();
 
@@ -560,6 +563,9 @@ const AgentDetail = () => {
           console.log("✅ 付款交易已发送，交易哈希:", txHash);
           console.log("等待交易确认...");
           
+          // 钱包签名成功后，立即启动礼盒动画
+          setShowBoxAnimation(true);
+          
           // 等待交易确认
           const receipt = await publicClient.waitForTransactionReceipt({
             hash: txHash as `0x${string}`,
@@ -752,6 +758,47 @@ const AgentDetail = () => {
           success: true,
           data: responseData,
         });
+        
+        // 提取图片URL（支持多种可能的字段名和嵌套结构）
+        let imageUrl: string | undefined = undefined;
+        
+        if (typeof responseData === "string") {
+          // 如果是字符串，尝试解析为 JSON
+          try {
+            const parsed = JSON.parse(responseData);
+            imageUrl = parsed?.image || 
+                      parsed?.imageUrl || 
+                      parsed?.url || 
+                      parsed?.data?.image ||
+                      parsed?.data?.imageUrl ||
+                      parsed?.data?.data ||
+                      parsed?.result?.image ||
+                      parsed?.result?.imageUrl;
+          } catch (e) {
+            // 不是 JSON，检查是否是 URL
+            if (responseData.startsWith("http://") || responseData.startsWith("https://")) {
+              imageUrl = responseData;
+            }
+          }
+        } else if (typeof responseData === "object" && responseData !== null) {
+          const data = responseData as any;
+          imageUrl = data?.image || 
+                    data?.imageUrl || 
+                    data?.url || 
+                    data?.data?.image ||
+                    data?.data?.imageUrl ||
+                    data?.data?.data ||
+                    data?.result?.image ||
+                    data?.result?.imageUrl;
+        }
+        
+        // 如果找到有效的图片URL，设置图片URL
+        if (imageUrl && (imageUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || imageUrl.includes("image") || imageUrl.includes("png") || imageUrl.includes("jpg"))) {
+          setAnimationImageUrl(imageUrl);
+        } else {
+          // 如果没有找到图片，清空图片URL
+          setAnimationImageUrl(undefined);
+        }
         
         // 注意：使用次数记录已移除，避免每次调用都产生链上交易
         // 如果需要记录使用次数，可以考虑：
@@ -1138,6 +1185,16 @@ const AgentDetail = () => {
           )}
         </div>
       </div>
+
+      {/* 礼盒开启动画 */}
+      <BoxOpeningAnimation
+        isOpen={showBoxAnimation}
+        imageUrl={animationImageUrl}
+        onClose={() => {
+          setShowBoxAnimation(false);
+          setAnimationImageUrl(undefined);
+        }}
+      />
     </>
   );
 };

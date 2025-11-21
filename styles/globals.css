@@ -223,3 +223,64 @@
 .link:hover {
   opacity: 80%;
 }
+
+/* 礼盒开启动画 */
+@keyframes shake {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  12.5% {
+    transform: rotate(8deg);
+  }
+  25% {
+    transform: rotate(-8deg);
+  }
+  37.5% {
+    transform: rotate(6deg);
+  }
+  50% {
+    transform: rotate(-6deg);
+  }
+  62.5% {
+    transform: rotate(5deg);
+  }
+  75% {
+    transform: rotate(-5deg);
+  }
+  87.5% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes rotate-glow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes image-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+
+.animate-rotate-glow {
+  animation: rotate-glow 8s linear infinite;
+}
+
+.animate-image-appear {
+  animation: image-appear 0.8s ease-out forwards;
+}
