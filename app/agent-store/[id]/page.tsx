@@ -968,11 +968,11 @@ const AgentDetail = () => {
                   <Address address={listing.owner} />
                   
                   {/* 显示推荐人信息 - Referrer Code temporarily hidden */}
-                  {false && listing?.referrer && listing.referrer.trim() && (
+                  {false && listing?.referrer && listing?.referrer.trim() && (
                     <div className="mt-4 pt-4 border-t border-[#FF6B00]/20">
                       <div className="flex items-center gap-2">
                         <span className="text-white/70 text-sm">{t("referrerCode") || "Referrer Code"}:</span>
-                        <span className="text-[#FF6B00] font-mono text-sm">{listing.referrer}</span>
+                        <span className="text-[#FF6B00] font-mono text-sm">{listing?.referrer}</span>
                       </div>
                     </div>
                   )}
