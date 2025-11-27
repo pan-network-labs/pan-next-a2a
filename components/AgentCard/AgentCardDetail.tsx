@@ -93,24 +93,24 @@ export function AgentCardDetail({ agentCard, loading, error, className = "" }: A
 
       {/* 端点信息 */}
       {/* Endpoints section temporarily hidden - may be enabled later */}
-      {false && agentCard.endpoints && (
+      {false && agentCard?.endpoints && (
         <div className="card bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 border border-[#FF6B00]/30 rounded-lg">
           <div className="card-body">
             <h3 className="card-title text-lg text-white mb-4">Endpoints</h3>
             <div className="space-y-2">
-              {agentCard.endpoints.task && (
+              {agentCard?.endpoints?.task && (
                 <div>
                   <span className="text-sm text-white/50">Task:</span>
                   <code className="ml-2 text-sm text-[#FF6B00] font-mono break-all">
-                    {agentCard.endpoints.task}
+                    {agentCard?.endpoints?.task}
                   </code>
                 </div>
               )}
-              {agentCard.endpoints.agentCard && (
+              {agentCard?.endpoints?.agentCard && (
                 <div>
                   <span className="text-sm text-white/50">Agent Card:</span>
                   <code className="ml-2 text-sm text-[#FF6B00] font-mono break-all">
-                    {agentCard.endpoints.agentCard}
+                    {agentCard?.endpoints?.agentCard}
                   </code>
                 </div>
               )}
