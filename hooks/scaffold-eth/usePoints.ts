@@ -130,7 +130,6 @@ export function useSelfCreateAgentPoints(address?: `0x${string}`) {
               count++;
             }
           } catch (error) {
-            console.error(`查询Agent ${agentId} 失败:`, error);
             // 继续处理下一个Agent
           }
         }

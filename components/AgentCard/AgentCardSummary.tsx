@@ -34,11 +34,6 @@ export function AgentCardSummary({ agentCard, loading, className = "" }: AgentCa
   }
 
   // 调试：检查 Agent Card 数据
-  console.log("AgentCardSummary - agentCard:", agentCard);
-  console.log("AgentCardSummary - description:", agentCard.description);
-  console.log("AgentCardSummary - description type:", typeof agentCard.description);
-  console.log("AgentCardSummary - description length:", agentCard.description?.length);
-  console.log("AgentCardSummary - description truthy:", !!agentCard.description);
 
   // 获取所有能力
   const capabilities = agentCard.capabilities || [];

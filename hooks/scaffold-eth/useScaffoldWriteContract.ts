@@ -65,9 +65,6 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
 
   useEffect(() => {
     if (typeof configOrName === "string") {
-      console.warn(
-        "Using `useScaffoldWriteContract` with a string parameter is deprecated. Please use the object parameter version instead.",
-      );
     }
   }, [configOrName]);
 

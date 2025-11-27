@@ -104,7 +104,6 @@ export function useAgentCard(
           errorMessage.includes("NetworkError") ||
           errorMessage.includes("Access-Control")
         ) {
-          console.log("Direct access failed due to CORS, using proxy...");
           const proxyUrl = `/api/proxy-agent?url=${encodeURIComponent(agentCardLink)}`;
           response = await fetch(proxyUrl, {
             method: "GET",
@@ -128,7 +127,6 @@ export function useAgentCard(
       const data = await response.json();
       setAgentCard(data as AgentCard);
     } catch (err: any) {
-      console.error("Error fetching Agent Card:", err);
       setError(err.message || "Failed to load Agent Card");
       setAgentCard(null);
     } finally {

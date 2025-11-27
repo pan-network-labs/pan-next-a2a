@@ -40,7 +40,6 @@ export const FaucetButton = () => {
       });
       setLoading(false);
     } catch (error) {
-      console.error("⚡️ ~ file: FaucetButton.tsx:sendETH ~ error", error);
       setLoading(false);
     }
   };

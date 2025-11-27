@@ -33,14 +33,6 @@ async function fetchWithRetry(
       return response as any;
     } catch (error: any) {
       lastError = error;
-      console.log(`Fetch attempt ${attempt + 1} failed:`, error.message);
-      console.log(`Error details:`, {
-        name: error.name,
-        message: error.message,
-        cause: error.cause,
-        code: error.cause?.code || error.code,
-        url: url,
-      });
       
       // 如果是连接超时错误，且还有重试机会，则等待后重试
       if (
@@ -56,7 +48,6 @@ async function fetchWithRetry(
           error.code === "ECONNREFUSED" ||
           error.code === "ENOTFOUND")
       ) {
-        console.log(`Retrying in ${retryDelay}ms... (attempt ${attempt + 2}/${maxRetries})`);
         await new Promise((resolve) => setTimeout(resolve, retryDelay));
         retryDelay *= 2; // 指数退避
         continue;
@@ -114,7 +105,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 发送请求到目标 Agent API
-    console.log("Proxy POST - Target URL:", targetUrl.toString());
     
     // 使用带重试的 fetch（使用 node-fetch，支持更长的超时时间）
     const response = await fetchWithRetry(
@@ -127,11 +117,9 @@ export async function POST(request: NextRequest) {
       2000 // 初始延迟 2 秒
     );
 
-    console.log("Proxy POST - Response status:", response.status);
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
-      console.error("Proxy POST - Target API error:", response.status, errorText);
       return NextResponse.json(
         { 
           error: "Target API error",
@@ -168,8 +156,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("Proxy POST error:", error);
-    console.error("Error details:", {
       name: error.name,
       message: error.message,
       stack: error.stack,
@@ -213,14 +199,11 @@ export async function GET(request: NextRequest) {
   try {
     // 解码 URL
     const decodedUrl = decodeURIComponent(url);
-    console.log("Proxy GET - Target URL:", decodedUrl);
-    console.log("Proxy GET - Original encoded URL:", url);
 
     // 验证 URL 格式
     try {
       new URL(decodedUrl);
     } catch (urlError) {
-      console.error("Proxy GET - Invalid URL format:", decodedUrl);
       return NextResponse.json(
         { error: "Invalid URL format", url: decodedUrl },
         { status: 400 }
@@ -242,11 +225,9 @@ export async function GET(request: NextRequest) {
       2000 // 初始延迟 2 秒
     );
 
-    console.log("Proxy GET - Response status:", response.status);
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
-      console.error("Proxy GET - Target API error:", response.status, errorText);
       return NextResponse.json(
         { 
           error: "Target API error",
@@ -273,8 +254,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("Proxy GET error:", error);
-    console.error("Error details:", {
       name: error.name,
       message: error.message,
       stack: error.stack,

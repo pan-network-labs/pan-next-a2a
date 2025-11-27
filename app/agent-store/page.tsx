@@ -88,7 +88,6 @@ const AgentStore: NextPage = () => {
               ? listing.agentCardLink.trim() 
               : undefined;
             
-            console.log(`Loading Agent #${id.toString()} - agentCardLink:`, agentCardLink);
             
             agentList.push({
               id: id.toString(),
@@ -100,7 +99,6 @@ const AgentStore: NextPage = () => {
             });
           }
         } catch (error) {
-          console.error("Error loading agent:", error);
         }
       }
       
@@ -185,11 +183,6 @@ function AgentCardItem({
   );
 
   // 调试：检查 Agent Card 加载状态
-  console.log(`Agent #${agent.id} - agentCardLink (raw):`, agent.agentCardLink);
-  console.log(`Agent #${agent.id} - agentCardLink (processed):`, agentCardLink);
-  console.log(`Agent #${agent.id} - cardLoading:`, cardLoading);
-  console.log(`Agent #${agent.id} - cardError:`, cardError);
-  console.log(`Agent #${agent.id} - agentCard:`, agentCard);
 
   return (
     <div 

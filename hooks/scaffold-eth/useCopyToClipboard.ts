@@ -11,7 +11,6 @@ export const useCopyToClipboard = () => {
         setIsCopiedToClipboard(false);
       }, 800);
     } catch (err) {
-      console.error("Failed to copy text:", err);
     }
   };
 

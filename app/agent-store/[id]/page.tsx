@@ -14,6 +14,7 @@ import { useAgentCard } from "~~/hooks/useAgentCard";
 import { AgentCardDetail } from "~~/components/AgentCard/AgentCardDetail";
 import { getQueryParam } from "~~/utils/urlParams";
 import { BoxOpeningAnimation } from "~~/components/BoxOpeningAnimation";
+import { ExecutionChecklist } from "~~/components/ExecutionChecklist";
 
 // SBT卡片组件
 const SBTCard = ({ 
@@ -47,8 +48,6 @@ const SBTCard = ({
         // 优先使用 getRarity 的结果，如果为 undefined 则使用 paymentInfo 中的
         const rarityNumber = rarityFromGetRarity !== undefined ? rarityFromGetRarity : rarityFromInfo;
         
-        // 调试日志
-        console.log(`[SBTCard] Token ${tokenId.toString()}: getRarity=${rarityFromGetRarity}, paymentInfo.rarity=${rarityFromInfo}, final=${rarityNumber}`);
         
         setSbtInfo({
           amount: info.amount,
@@ -60,7 +59,6 @@ const SBTCard = ({
           rarity: rarityNumber, // 0 = N, 1 = R, 2 = S
         });
       } catch (e) {
-        console.error("获取SBT信息失败:", e);
       } finally {
         setLoading(false);
       }
@@ -130,12 +128,15 @@ const SBTCard = ({
           <span className="text-white/70">{t("recipientAddress")}</span>
           <Address address={sbtInfo.recipient} />
         </div>
-        <div className="flex justify-between">
-          <span className="text-white/70">{t("referrerCode")}</span>
-          <span className="text-white/80 text-xs font-mono">
-            {sbtInfo.referrer && sbtInfo.referrer.trim() ? sbtInfo.referrer : t("noReferrer")}
-          </span>
-        </div>
+        {/* Referrer Code temporarily hidden */}
+        {false && (
+          <div className="flex justify-between">
+            <span className="text-white/70">{t("referrerCode")}</span>
+            <span className="text-white/80 text-xs font-mono">
+              {sbtInfo.referrer && sbtInfo.referrer.trim() ? sbtInfo.referrer : t("noReferrer")}
+            </span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span className="text-white/70">{t("paymentTime")}</span>
           <span className="text-white/80 text-xs">
@@ -173,6 +174,8 @@ const AgentDetail = () => {
   const [isUnlisting, setIsUnlisting] = useState(false);
   const [showBoxAnimation, setShowBoxAnimation] = useState(false);
   const [animationImageUrl, setAnimationImageUrl] = useState<string | undefined>(undefined);
+  const [showExecutionChecklist, setShowExecutionChecklist] = useState(false);
+  const [executionSteps, setExecutionSteps] = useState<Array<{id: string; label: string; status: "pending" | "executing" | "completed" | "error"}>>([]);
   const { address } = useAccount();
   const { targetNetwork } = useTargetNetwork();
 
@@ -235,12 +238,30 @@ const AgentDetail = () => {
 
   const handleCallAgent = async () => {
     if (!listing) {
-      console.error("Listing is null");
       return;
     }
     
     setIsCalling(true);
     setRequestResult(null);
+    
+    // 初始化执行步骤
+    const initialSteps = [
+      { id: "wallet", label: t("stepWalletSignature"), status: "pending" as const },
+      { id: "transaction", label: t("stepTransactionSent"), status: "pending" as const },
+      { id: "confirm", label: t("stepTransactionConfirmed"), status: "pending" as const },
+      { id: "api", label: t("stepApiCall"), status: "pending" as const },
+      { id: "image", label: t("stepImageGeneration"), status: "pending" as const },
+    ];
+    setExecutionSteps(initialSteps);
+    setShowExecutionChecklist(true);
+    setShowBoxAnimation(false); // 先隐藏礼盒动画
+    
+    // 更新步骤状态的辅助函数
+    const updateStep = (stepId: string, status: "pending" | "executing" | "completed" | "error") => {
+      setExecutionSteps(prev => prev.map(step => 
+        step.id === stepId ? { ...step, status } : step
+      ));
+    };
     
     try {
       // 从 Agent Card 获取请求方式和 URL（所有信息从 Agent Card 获取）
@@ -255,8 +276,6 @@ const AgentDetail = () => {
         throw new Error("Agent Card must contain 'endpoints.task'");
       }
       
-      console.log("调用Agent, method:", method, "url:", url);
-      console.log("Agent Card calling config:", agentCard.calling);
       
       // 请求参数从用户输入获取（如果有输入框的话）
       let requestParams = {};
@@ -293,7 +312,6 @@ const AgentDetail = () => {
         } else {
           requestConfig.body = JSON.stringify(requestParams);
         }
-        console.log("请求body:", requestConfig.body);
       } else if (method === "GET" || method === "DELETE") {
         // GET和DELETE请求，将参数添加到URL
         if (Object.keys(requestParams).length > 0) {
@@ -303,9 +321,7 @@ const AgentDetail = () => {
               urlObj.searchParams.append(key, String(requestParams[key as keyof typeof requestParams]));
             });
             targetUrl = urlObj.toString();
-            console.log("带参数的URL:", targetUrl);
           } catch (e) {
-            console.error("URL解析失败:", e);
             setRequestResult({
               success: false,
               error: t("agentLinkFormatError"),
@@ -317,12 +333,19 @@ const AgentDetail = () => {
       }
       
       // 发送HTTP请求（优先直接访问，遇到 CORS 错误时使用代理）
-      console.log("发送请求到:", targetUrl);
       let response: Response;
+      
+      // 如果不需要付款（第一次请求），更新步骤状态
+      let needsPayment = false;
+      
       try {
+        // 更新步骤：API 调用中
+        updateStep("wallet", "completed"); // 如果不需要付款，跳过钱包签名
+        updateStep("transaction", "completed"); // 如果不需要付款，跳过交易
+        updateStep("confirm", "completed"); // 如果不需要付款，跳过确认
+        updateStep("api", "executing");
         // 优先尝试直接访问
         response = await fetch(targetUrl, requestConfig);
-        console.log("HTTP响应状态:", response.status, response.statusText);
       } catch (directError: any) {
         // 如果是 CORS 错误，使用代理
         const errorMessage = directError.message || directError.toString();
@@ -332,7 +355,6 @@ const AgentDetail = () => {
           errorMessage.includes("NetworkError") ||
           errorMessage.includes("Access-Control")
         ) {
-          console.log("Direct access failed due to CORS, using proxy...");
           try {
             // 使用 Next.js API 代理路由
             response = await fetch("/api/proxy-agent", {
@@ -347,7 +369,6 @@ const AgentDetail = () => {
                 body: requestConfig.body,
               }),
             });
-            console.log("HTTP响应状态 (via proxy):", response.status, response.statusText);
           } catch (proxyError: any) {
             // 代理也失败了
             const networkErrorMsg = (t("networkConnectionError" as any) as string) || "Network connection failed. Please check the Agent URL and your network connection.";
@@ -361,7 +382,15 @@ const AgentDetail = () => {
       
       // 处理402 Payment Required错误
       if (response.status === 402) {
-        console.log("收到402错误，需要付款");
+        needsPayment = true;
+        // 重置步骤状态，因为需要付款流程
+        setExecutionSteps([
+          { id: "wallet", label: t("stepWalletSignature"), status: "pending" as const },
+          { id: "transaction", label: t("stepTransactionSent"), status: "pending" as const },
+          { id: "confirm", label: t("stepTransactionConfirmed"), status: "pending" as const },
+          { id: "api", label: t("stepApiCall"), status: "pending" as const },
+          { id: "image", label: t("stepImageGeneration"), status: "pending" as const },
+        ]);
         
         // 检查钱包连接
         if (!address) {
@@ -372,31 +401,19 @@ const AgentDetail = () => {
         let paymentDetails;
         try {
           const responseData = await response.json();
-          console.log("402响应原始数据:", responseData);
-          console.log("402响应数据类型:", typeof responseData);
-          console.log("402响应数据键:", Object.keys(responseData || {}));
           
           // 支持 x402 协议格式：{ accepts: [{ address, maxAmountRequired, currency, ... }], x402Version: 1 }
           if (responseData.accepts && Array.isArray(responseData.accepts) && responseData.accepts.length > 0) {
             // x402 格式：从 accepts 数组的第一个元素获取支付信息
             const accept = responseData.accepts[0];
-            console.log("检测到 x402 格式，accept 对象:", accept);
-            console.log("accept 对象类型:", typeof accept);
-            console.log("accept 对象键:", Object.keys(accept || {}));
             
             // 检查必需的字段：价格
             if (!accept.maxAmountRequired && !accept.price && !accept.amount) {
-              console.error("x402 accept 对象缺少价格字段:", accept);
-              console.error("accept.maxAmountRequired:", accept.maxAmountRequired);
-              console.error("accept.price:", accept.price);
-              console.error("accept.amount:", accept.amount);
               throw new Error(t("paymentDetailsFormatError"));
             }
             
             // 检查必需的字段：地址
             if (!accept.address) {
-              console.error("x402 accept 对象缺少地址字段:", accept);
-              console.error("accept.address:", accept.address);
               throw new Error(t("paymentDetailsFormatError"));
             }
             
@@ -409,56 +426,38 @@ const AgentDetail = () => {
               scheme: accept.scheme,
               resource: accept.resource,
             };
-            console.log("检测到 x402 格式，提取支付信息:", paymentDetails);
           } else if (responseData.data && typeof responseData.data === 'object') {
             // 嵌套结构：{ data: { price: ... } }
-            console.log("检测到嵌套 data 结构");
             paymentDetails = responseData.data;
           } else if (responseData.paymentDetails && typeof responseData.paymentDetails === 'object') {
             // 嵌套结构：{ paymentDetails: { price: ... } }
-            console.log("检测到嵌套 paymentDetails 结构");
             paymentDetails = responseData.paymentDetails;
           } else if (responseData.price !== undefined || responseData.maxAmountRequired !== undefined) {
             // 直接格式：{ price: ... } 或 { maxAmountRequired: ... }
-            console.log("检测到直接格式");
             paymentDetails = {
               ...responseData,
               price: responseData.price || responseData.maxAmountRequired || responseData.amount,
             };
           } else {
             // 尝试查找任何包含 price 字段的对象
-            console.log("使用默认分支，直接使用 responseData");
             paymentDetails = responseData;
           }
         } catch (e) {
-          console.error("解析402响应失败:", e);
           if (e instanceof Error && e.message.includes("paymentDetailsFormatError")) {
             throw e; // 重新抛出格式错误
           }
           throw new Error(t("cannotParse402Response"));
         }
         
-        console.log("付款详情 (解析后):", paymentDetails);
-        console.log("付款详情类型:", typeof paymentDetails);
-        console.log("付款详情键:", Object.keys(paymentDetails || {}));
-        console.log("付款详情.address:", paymentDetails?.address);
-        console.log("付款详情.price:", paymentDetails?.price);
-        console.log("付款详情.maxAmountRequired:", paymentDetails?.maxAmountRequired);
-        console.log("付款详情.amount:", paymentDetails?.amount);
         
         // 安全检查：验证付款详情格式
         if (!paymentDetails || typeof paymentDetails !== 'object') {
-          console.error("paymentDetails 不是对象:", paymentDetails);
           throw new Error(t("paymentDetailsFormatError"));
         }
         
         // 检查价格字段（支持多种字段名：price, maxAmountRequired, amount）
         const priceFieldValue = paymentDetails.price || paymentDetails.maxAmountRequired || paymentDetails.amount;
         if (!priceFieldValue && priceFieldValue !== 0 && priceFieldValue !== "0") {
-          console.error("paymentDetails 缺少 price/maxAmountRequired/amount 字段:", paymentDetails);
-          console.error("paymentDetails.price:", paymentDetails.price);
-          console.error("paymentDetails.maxAmountRequired:", paymentDetails.maxAmountRequired);
-          console.error("paymentDetails.amount:", paymentDetails.amount);
           throw new Error(t("paymentDetailsFormatError"));
         }
         
@@ -469,8 +468,6 @@ const AgentDetail = () => {
         
         // 检查地址字段（必需）
         if (!paymentDetails.address) {
-          console.error("paymentDetails 缺少 address 字段:", paymentDetails);
-          console.error("paymentDetails 所有字段:", Object.keys(paymentDetails));
           throw new Error(t("paymentDetailsFormatError"));
         }
         
@@ -489,7 +486,6 @@ const AgentDetail = () => {
             priceInWei = parseEther(priceStr);
           }
         } catch (e) {
-          console.error("价格转换失败:", e, paymentDetails.price);
           throw new Error(`${t("priceFormatError")} ${paymentDetails.price}`);
         }
         
@@ -500,7 +496,6 @@ const AgentDetail = () => {
         
         // 将 wei 转换为 ETH 进行验证（防止价格过大）
         const priceInEth = Number(priceInWei) / 1e18;
-        console.log("价格验证:", priceInWei.toString(), "wei =", priceInEth, "ETH");
         
         // 安全检查：防止价格过大（防止溢出，例如超过 1000 ETH）
         if (priceInEth > 1000) {
@@ -513,11 +508,9 @@ const AgentDetail = () => {
         }
         
         // priceInWei 已经在上面计算好了，直接使用
-        console.log("使用价格:", priceInWei.toString(), "wei =", priceInEth, "ETH");
         
         // 检查网络是否匹配（如果有指定）
         if (paymentDetails.network) {
-          console.log("Agent要求的网络:", paymentDetails.network);
           // 这里可以添加网络切换逻辑
         }
         
@@ -528,10 +521,6 @@ const AgentDetail = () => {
         
         const agentPaymentAddress = paymentDetails.address as `0x${string}`;
         
-        console.log("支付信息:");
-        console.log("  - Agent 收款地址:", agentPaymentAddress);
-        console.log("  - 支付金额:", priceInWei.toString(), "wei =", priceInEth, paymentDetails.currency || "ETH");
-        console.log("  - 网络:", paymentDetails.network || "当前网络");
         
         if (!walletClient) {
           throw new Error(t("walletClientNotConnected"));
@@ -542,11 +531,12 @@ const AgentDetail = () => {
         }
         
         // 直接发送原生代币转账到 Agent 返回的地址
-        console.log("开始向 Agent 地址发送付款...");
         
         let txHash: string;
         try {
-          console.log("发送原生代币转账交易...");
+          
+          // 更新步骤：钱包签名中
+          updateStep("wallet", "executing");
           
           // 使用 walletClient 发送原生代币转账
           const hash = await walletClient.sendTransaction({
@@ -560,11 +550,11 @@ const AgentDetail = () => {
           }
           
           txHash = hash;
-          console.log("✅ 付款交易已发送，交易哈希:", txHash);
-          console.log("等待交易确认...");
           
-          // 钱包签名成功后，立即启动礼盒动画
-          setShowBoxAnimation(true);
+          // 更新步骤：钱包签名完成，交易已发送
+          updateStep("wallet", "completed");
+          updateStep("transaction", "completed");
+          updateStep("confirm", "executing");
           
           // 等待交易确认
           const receipt = await publicClient.waitForTransactionReceipt({
@@ -572,40 +562,57 @@ const AgentDetail = () => {
             timeout: 60_000, // 60秒超时
           });
           
-          console.log("✅ 交易已确认，区块号:", receipt.blockNumber);
-          console.log("✅ 付款已发送到 Agent 地址:", agentPaymentAddress);
-          console.log("注意: Agent 会自行处理 SBT 铸造，请等待 Agent 响应");
+          
+          // 更新步骤：交易确认完成
+          updateStep("confirm", "completed");
+          updateStep("api", "executing");
           
         } catch (error: any) {
-          console.error("付款失败:", error);
+          
+          // 更新当前执行中的步骤为错误状态
+          setExecutionSteps(prev => prev.map(step => 
+            step.status === "executing" ? { ...step, status: "error" as const } : step
+          ));
           
           // 检查用户拒绝交易的多种情况
           const errorMessage = error.message || error.shortMessage || error.details || "";
           const errorString = errorMessage.toLowerCase();
+          const errorName = error.name || "";
+          const errorNameLower = errorName.toLowerCase();
           
+          // 检查是否是用户拒绝交易（包括 TransactionExecutionError）
           if (
             errorString.includes("user rejected") ||
             errorString.includes("user denied") ||
             errorString.includes("user cancelled") ||
             errorString.includes("rejected") ||
             errorString.includes("denied") ||
+            errorString.includes("denied transaction signature") ||
+            errorNameLower.includes("userrejected") ||
+            errorNameLower.includes("transactionexecutionerror") ||
             error.name === "UserRejectedRequestError" ||
-            error.code === 4001 // MetaMask用户拒绝错误码
+            error.code === 4001 || // MetaMask用户拒绝错误码
+            error.cause?.code === 4001
           ) {
+            // 更新步骤状态为错误
+            updateStep("wallet", "error");
             throw new Error(t("paymentCancelled"));
           } else if (
             errorString.includes("insufficient funds") ||
             errorString.includes("balance") ||
             error.code === "INSUFFICIENT_FUNDS"
           ) {
+            updateStep("wallet", "error");
             throw new Error(t("insufficientFunds"));
           } else if (errorString.includes("network") || errorString.includes("chain")) {
+            updateStep("wallet", "error");
             throw new Error(t("networkError"));
           } else {
             // 提取更友好的错误信息
-            const friendlyError = errorMessage.includes("ContractFunctionExecutionError")
+            const friendlyError = errorMessage.includes("ContractFunctionExecutionError") || errorMessage.includes("TransactionExecutionError")
               ? t("transactionExecutionFailed")
               : errorMessage || t("unknownError");
+            updateStep("wallet", "error");
             throw new Error(`${t("paymentFailed")} ${friendlyError}`);
           }
         }
@@ -635,9 +642,6 @@ const AgentDetail = () => {
         
         // 从 URL 参数中获取 referrer，并添加到请求体的 ext.referrer 字段
         const referrerCode = getQueryParam("referrer");
-        console.log("🔍 [Referrer Debug] 从 URL 获取的 referrer 参数:", referrerCode);
-        console.log("🔍 [Referrer Debug] 当前 URL:", typeof window !== "undefined" ? window.location.href : "N/A");
-        console.log("🔍 [Referrer Debug] 请求方法:", method);
         
         // 修改请求体，添加 ext.referrer 字段
         if (method === "POST" || method === "PUT") {
@@ -646,7 +650,6 @@ const AgentDetail = () => {
             let bodyData: any = {};
             if (requestConfig.body) {
               bodyData = JSON.parse(requestConfig.body as string);
-              console.log("🔍 [Referrer Debug] 原始请求体:", bodyData);
             }
             
             // 添加 ext 对象（如果不存在）
@@ -657,29 +660,22 @@ const AgentDetail = () => {
             // 如果有 referrer，添加到 ext.referrer
             if (referrerCode && referrerCode.trim()) {
               bodyData.ext.referrer = referrerCode.trim();
-              console.log("✅ [Referrer Debug] 添加 ext.referrer 到请求体:", referrerCode.trim());
             } else {
-              console.warn("⚠️ [Referrer Debug] referrer 为空或无效:", referrerCode);
             }
             
             // 更新请求体
             requestConfig.body = JSON.stringify(bodyData);
-            console.log("🔍 [Referrer Debug] 更新后的请求体:", requestConfig.body);
           } catch (e) {
-            console.error("❌ [Referrer Debug] 解析或修改请求体失败:", e);
             // 如果解析失败，创建一个新的请求体
             const bodyData: any = {};
             if (referrerCode && referrerCode.trim()) {
               bodyData.ext = { referrer: referrerCode.trim() };
-              console.log("✅ [Referrer Debug] 创建新请求体，包含 ext.referrer:", referrerCode.trim());
             }
             requestConfig.body = JSON.stringify(bodyData);
           }
         } else if (method === "GET" || method === "DELETE") {
           // GET/DELETE 请求，referrer 已经在 URL 参数中
           // 但为了确保 Agent 后端能读取到，我们也可以将 referrer 添加到请求体中（如果 Agent 支持）
-          console.log("🔍 [Referrer Debug] GET/DELETE 请求，referrer 在 URL 参数中:", referrerCode);
-          console.log("🔍 [Referrer Debug] 目标 URL:", targetUrl);
           
           // 对于 GET/DELETE 请求，如果 Agent 后端期望从请求体读取，我们也添加到请求体中
           // 注意：某些 Agent 后端可能不支持 GET 请求的 body，但我们可以尝试
@@ -691,22 +687,16 @@ const AgentDetail = () => {
                 }
               };
               requestConfig.body = JSON.stringify(bodyData);
-              console.log("✅ [Referrer Debug] GET/DELETE 请求，也添加到请求体:", requestConfig.body);
             } catch (e) {
-              console.error("❌ [Referrer Debug] GET/DELETE 请求添加 referrer 到 body 失败:", e);
             }
           }
         }
         
-        console.log("重新发送请求，包含X-PAYMENT头:");
-        console.log("  - 原始交易哈希:", txHash);
-        console.log("  - 编码后的值:", paymentHeaderValue);
-        console.log("  - 编码方式: base64");
-        console.log("  - 完整请求头:", requestConfig.headers);
         try {
+          // 更新步骤：API 调用中
+          updateStep("api", "executing");
           // 优先尝试直接访问
           response = await fetch(targetUrl, requestConfig);
-          console.log("重新请求后的HTTP响应状态:", response.status, response.statusText);
         } catch (directError: any) {
           // 如果是 CORS 错误，使用代理
           const errorMessage = directError.message || directError.toString();
@@ -716,7 +706,6 @@ const AgentDetail = () => {
             errorMessage.includes("NetworkError") ||
             errorMessage.includes("Access-Control")
           ) {
-            console.log("Direct access failed due to CORS, using proxy for retry...");
             try {
               // 使用 Next.js API 代理路由
               response = await fetch("/api/proxy-agent", {
@@ -731,7 +720,6 @@ const AgentDetail = () => {
                   body: requestConfig.body,
                 }),
               });
-              console.log("重新请求后的HTTP响应状态 (via proxy):", response.status, response.statusText);
             } catch (proxyError: any) {
               // 代理也失败了
               const networkErrorMsg = (t("networkConnectionError" as any) as string) || "Network connection failed. Please check the Agent URL and your network connection.";
@@ -792,10 +780,18 @@ const AgentDetail = () => {
                     data?.result?.imageUrl;
         }
         
+        // 更新步骤：API 调用完成
+        updateStep("api", "completed");
+        updateStep("image", "executing");
+        
         // 如果找到有效的图片URL，设置图片URL
         if (imageUrl && (imageUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || imageUrl.includes("image") || imageUrl.includes("png") || imageUrl.includes("jpg"))) {
           setAnimationImageUrl(imageUrl);
+          // 更新步骤：图片生成完成
+          updateStep("image", "completed");
         } else {
+          // 即使没有图片，也标记为完成
+          updateStep("image", "completed");
           // 如果没有找到图片，清空图片URL
           setAnimationImageUrl(undefined);
         }
@@ -831,7 +827,6 @@ const AgentDetail = () => {
               `❌ ${currentCallerLabel}: ${currentCaller}\n\n` +
               `💡 ${tipLabel}`;
           } catch (queryError) {
-            console.error("查询授权地址失败:", queryError);
             errorMessage = `${errorData}\n\n💡 ${t("minterPermissionErrorTip")}`;
           }
         } else if (errorData) {
@@ -845,11 +840,21 @@ const AgentDetail = () => {
         });
       }
     } catch (error: any) {
-      console.error("调用Agent失败:", error);
+      
+      // 更新当前执行中的步骤为错误状态
+      setExecutionSteps(prev => prev.map(step => 
+        step.status === "executing" ? { ...step, status: "error" as const } : step
+      ));
+      
       setRequestResult({
         success: false,
         error: error.message || t("requestFailed") + " " + t("networkError"),
       });
+      
+      // 延迟隐藏执行清单，让用户看到错误状态
+      setTimeout(() => {
+        setShowExecutionChecklist(false);
+      }, 3000);
     } finally {
       setIsCalling(false);
     }
@@ -873,7 +878,6 @@ const AgentDetail = () => {
       // 跳转回首页
       window.location.href = "/home";
     } catch (error: any) {
-      console.error("Unlist agent error:", error);
       const errorMessage = error.message || error.shortMessage || error.details || "";
       const errorString = errorMessage.toLowerCase();
       
@@ -915,7 +919,6 @@ const AgentDetail = () => {
   //     refetch();
   //     alert("评价提交成功！");
   //   } catch (error) {
-  //     console.error("Submit rating error:", error);
   //   } finally {
   //     setIsSubmitting(false);
   //   }
@@ -964,8 +967,8 @@ const AgentDetail = () => {
                   <h2 className="card-title text-xl text-white mb-4">{t("agentOwner") || "Owner"}</h2>
                   <Address address={listing.owner} />
                   
-                  {/* 显示推荐人信息 */}
-                  {listing.referrer && listing.referrer.trim() && (
+                  {/* 显示推荐人信息 - Referrer Code temporarily hidden */}
+                  {false && listing.referrer && listing.referrer.trim() && (
                     <div className="mt-4 pt-4 border-t border-[#FF6B00]/20">
                       <div className="flex items-center gap-2">
                         <span className="text-white/70 text-sm">{t("referrerCode") || "Referrer Code"}:</span>
@@ -1185,6 +1188,16 @@ const AgentDetail = () => {
           )}
         </div>
       </div>
+
+      {/* 执行清单 */}
+      <ExecutionChecklist
+        isOpen={showExecutionChecklist}
+        steps={executionSteps}
+        onComplete={() => {
+          setShowExecutionChecklist(false);
+          setShowBoxAnimation(true);
+        }}
+      />
 
       {/* 礼盒开启动画 */}
       <BoxOpeningAnimation

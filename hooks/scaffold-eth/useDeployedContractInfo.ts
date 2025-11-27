@@ -39,9 +39,6 @@ export function useDeployedContractInfo<TContractName extends ContractName>(
 
   useEffect(() => {
     if (typeof configOrName === "string") {
-      console.warn(
-        "Using `useDeployedContractInfo` with a string parameter is deprecated. Please use the object parameter version instead.",
-      );
     }
   }, [configOrName]);
   const { contractName, chainId } = finalConfig;
@@ -71,7 +68,6 @@ export function useDeployedContractInfo<TContractName extends ContractName>(
         }
         setStatus(ContractCodeStatus.DEPLOYED);
       } catch (e) {
-        console.error(e);
         setStatus(ContractCodeStatus.NOT_FOUND);
       }
     };

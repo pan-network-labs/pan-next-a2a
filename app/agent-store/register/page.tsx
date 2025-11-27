@@ -81,7 +81,6 @@ const RegisterAgent: NextPage = () => {
       // 成功后跳转
       router.push(addQueryParams("/home"));
     } catch (error: any) {
-      console.error("Registration error:", error);
       setValidationError(error.message || t("registrationFailed") || "Registration failed");
     } finally {
       setIsRegistering(false);
@@ -116,7 +115,8 @@ const RegisterAgent: NextPage = () => {
                   </div>
                 </div>
               )}
-              {getQueryParam("referrer") && (
+              {/* Referrer Code temporarily hidden */}
+              {false && getQueryParam("referrer") && (
                 <div className="p-3 rounded-lg bg-gradient-to-r from-[#1A110A]/50 to-[#261A10]/50 border border-[#FF6B00]/20">
                   <div className="flex items-center gap-2 text-sm text-white/70">
                     <svg className="w-4 h-4 text-[#FF6B00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">

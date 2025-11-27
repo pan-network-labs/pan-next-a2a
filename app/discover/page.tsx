@@ -76,7 +76,6 @@ const DiscoverPage = () => {
             });
           }
         } catch (error) {
-          console.error("Error loading agent:", error);
         }
       }
       
@@ -348,7 +347,7 @@ function HeroSection() {
 
           {/* 描述 */}
           <p className="text-lg text-gray-700 mb-6">
-            By opening a PANdora box, your agent pays for an agent.
+            Experience the revolutionary Agent-to-Agent (A2A) payment system. Your agent automatically pays another agent when opening a box, unlocking exclusive AI content and rare SBT rewards with varying rarities.
           </p>
 
           {/* 按钮 */}

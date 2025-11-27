@@ -19,16 +19,88 @@ export const BoxOpeningAnimation: React.FC<BoxOpeningAnimationProps> = ({
   const [showImage, setShowImage] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  // 下载图片功能
-  const handleDownload = () => {
+  // 下载图片功能（支持移动设备和跨域）
+  const handleDownload = async () => {
     if (!imageUrl) return;
     
-    const link = document.createElement("a");
-    link.href = imageUrl;
-    link.download = `pandora-image-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      // 检测是否为移动设备
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      // 检查是否是跨域 URL
+      const isCrossOrigin = (() => {
+        try {
+          const url = new URL(imageUrl);
+          const currentOrigin = window.location.origin;
+          return url.origin !== currentOrigin;
+        } catch {
+          return true; // 如果 URL 解析失败，假设是跨域的
+        }
+      })();
+      
+      // 如果是跨域图片，直接使用备用方案（避免 CORS 错误）
+      if (isCrossOrigin) {
+        if (isMobile) {
+          // 移动设备：在新窗口打开，让用户长按保存
+          window.open(imageUrl, "_blank");
+        } else {
+          // 桌面设备：尝试直接下载（跨域时可能不工作，但浏览器会打开图片）
+          const link = document.createElement("a");
+          link.href = imageUrl;
+          link.download = `pandora-image-${Date.now()}.png`;
+          link.target = "_blank";
+          link.style.display = "none";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+        return;
+      }
+      
+      // 同域图片：尝试使用 fetch 获取 blob（更好的下载体验）
+      try {
+        const response = await fetch(imageUrl, {
+          mode: "cors",
+          credentials: "omit",
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          
+          // 创建临时链接并触发下载
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          link.download = `pandora-image-${Date.now()}.png`;
+          link.style.display = "none";
+          document.body.appendChild(link);
+          link.click();
+          
+          // 清理
+          setTimeout(() => {
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+          }, 100);
+          
+          return;
+        }
+      } catch (fetchError) {
+        // fetch 失败，使用备用方案
+      }
+      
+      // 备用方案：直接使用 download 属性
+      const link = document.createElement("a");
+      link.href = imageUrl;
+      link.download = `pandora-image-${Date.now()}.png`;
+      link.target = "_blank";
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      // 最后的备用方案：在新窗口打开图片
+      window.open(imageUrl, "_blank");
+    }
   };
 
   useEffect(() => {
@@ -49,7 +121,6 @@ export const BoxOpeningAnimation: React.FC<BoxOpeningAnimationProps> = ({
         }, 500);
       };
       img.onerror = () => {
-        console.error("图片加载失败");
         setImageLoaded(true);
         setShowImage(true);
       };

@@ -8,13 +8,16 @@ export const LanguageSwitcher = () => {
 
   const languages: { code: Language; label: string }[] = [
     { code: "en", label: "EN" },
+    { code: "ko", label: "한국어" },
     { code: "zh-TW", label: "繁中" },
   ];
 
   return (
     <div className="dropdown dropdown-end">
       <div tabIndex={0} role="button" className="btn btn-sm rounded-lg bg-[#1A110A]/50 border border-[#FF6B00]/30 text-white hover:bg-[#FF6B00]/20 transition-all duration-300">
-        <span className="text-sm font-medium">{language === "en" ? "EN" : "繁中"}</span>
+        <span className="text-sm font-medium">
+          {language === "en" ? "EN" : language === "ko" ? "한국어" : "繁中"}
+        </span>
         <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>

@@ -397,7 +397,6 @@ export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds):
       // If not found in simple lookup, provide a helpful message with context
       return `${originalParsedError}\n\nThis error occurred when calling a function that internally calls another contract. Check the contract that your function calls internally for more details.`;
     } catch (lookupError) {
-      console.log("Failed to create error lookup table:", lookupError);
     }
   }
 

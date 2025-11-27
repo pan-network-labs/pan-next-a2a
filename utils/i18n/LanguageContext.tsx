@@ -20,7 +20,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Load language from localStorage only on client side
     if (typeof window !== "undefined") {
       const savedLanguage = localStorage.getItem("language") as Language;
-      if (savedLanguage && (savedLanguage === "en" || savedLanguage === "zh-TW")) {
+      if (savedLanguage && (savedLanguage === "en" || savedLanguage === "ko" || savedLanguage === "zh-TW")) {
         setLanguageState(savedLanguage);
       }
     }

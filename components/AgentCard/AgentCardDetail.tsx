@@ -92,7 +92,8 @@ export function AgentCardDetail({ agentCard, loading, error, className = "" }: A
       )}
 
       {/* 端点信息 */}
-      {agentCard.endpoints && (
+      {/* Endpoints section temporarily hidden - may be enabled later */}
+      {false && agentCard.endpoints && (
         <div className="card bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 border border-[#FF6B00]/30 rounded-lg">
           <div className="card-body">
             <h3 className="card-title text-lg text-white mb-4">Endpoints</h3>

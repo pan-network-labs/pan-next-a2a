@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Image from "next/image";
 import { formatEther } from "viem";
 import { useAccount } from "wagmi";
 import { useScaffoldReadContract, useScaffoldContract, useCopyToClipboard, useTotalPoints, useSelfMintSBTPoints, useSelfCreateAgentPoints, useReferMintSBTPoints, useReferCreateAgentPoints } from "~~/hooks/scaffold-eth";
@@ -8,7 +9,7 @@ import { LinkWithParams } from "~~/components/LinkWithParams";
 import { useLanguage } from "~~/utils/i18n/LanguageContext";
 import { useAgentCard } from "~~/hooks/useAgentCard";
 import CryptoJS from "crypto-js";
-import { DocumentDuplicateIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { DocumentDuplicateIcon, CheckCircleIcon, KeyIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { addQueryParams } from "~~/utils/urlParams";
 
@@ -96,7 +97,6 @@ const HomePage = () => {
             });
           }
         } catch (error) {
-          console.error("Error loading agent:", error);
         }
       }
       
@@ -127,9 +127,6 @@ const HomePage = () => {
         // 1. 计算钱包地址的 MD5 并取最后 8 位
         const md5Hash = CryptoJS.MD5(address.toLowerCase()).toString();
         const referrerCode = md5Hash.slice(-8);
-        console.log("钱包地址:", address);
-        console.log("MD5 哈希:", md5Hash);
-        console.log("推荐码 (最后8位):", referrerCode);
 
         // 2. 调用 AgentStore 合约获取该推荐码的所有 Agent IDs
         const agentIds = await agentStoreContract.read.getAgentsByReferrer([referrerCode]) as bigint[];
@@ -140,7 +137,6 @@ const HomePage = () => {
           return;
         }
 
-        console.log("推荐码对应的 Agent IDs:", agentIds);
 
         // 3. 批量查询每个 Agent 的 owner，并去重
         const ownerPromises = agentIds.map(async (agentId) => {
@@ -149,7 +145,6 @@ const HomePage = () => {
             const [listing] = fullInfo;
             return listing.owner.toLowerCase();
           } catch (error) {
-            console.error(`查询 Agent ${agentId} 的 owner 失败:`, error);
             return null;
           }
         });
@@ -157,10 +152,8 @@ const HomePage = () => {
         const owners = await Promise.all(ownerPromises);
         const uniqueOwners = new Set(owners.filter(owner => owner !== null));
         
-        console.log("去重后的邀请人数:", uniqueOwners.size);
         setInviteCount(uniqueOwners.size);
       } catch (error) {
-        console.error("查询邀请人数失败:", error);
         setInviteCount(null);
       } finally {
         setLoadingInviteCount(false);
@@ -376,167 +369,128 @@ const HomePage = () => {
         {/* 主操作部分 */}
         <div className="mb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Open Box */}
-            <div className="group relative card bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl overflow-hidden shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 hover:shadow-2xl transition-all duration-500 hover:border-[#FF6B00]/60 hover:-translate-y-2 flex flex-col">
-              {/* 装饰性渐变背景 */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B00]/8 via-transparent to-[#FF8C00]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-              
-              {/* 顶部装饰线 */}
-              <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#FF6B00]/60 to-transparent"></div>
-              
-              {/* 左侧装饰条 */}
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#FF6B00]/40 via-[#FF6B00]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-              
-              <div className="card-body p-8 relative">
-                <div className="space-y-6">
-                  {/* 顶部：图标、标题、价格和按钮横向排列 */}
-                  <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                    {/* 左侧：图标和标题 */}
-                    <div className="flex items-center gap-4 flex-1">
-                      <div 
-                        className="rounded-xl bg-gradient-to-br from-[#FF6B00]/20 to-[#FF8C00]/20 flex items-center justify-center border border-[#FF6B00]/30 shadow-lg shadow-[#FF6B00]/20 flex-shrink-0"
-                        style={{ width: '80px', height: '80px', minWidth: '80px', maxWidth: '80px', minHeight: '80px', maxHeight: '80px' }}
-                      >
-                        <svg className="w-10 h-10 text-[#FF6B00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-white mb-2">{t("pandoraBox")}</h3>
-                        <div className="text-3xl font-bold text-[#FF6B00]">0.005 BNB</div>
-                      </div>
-                    </div>
+            {/* Open Box - Marketplace Style */}
+            <div className="group relative bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl overflow-hidden shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 hover:shadow-2xl transition-all duration-500 hover:border-[#FF6B00]/60 hover:-translate-y-2">
+              <div className="relative p-6 h-full min-h-[280px] flex flex-col">
+                {/* 右上角 Detail 链接 */}
+                <div className="absolute top-6 right-6 z-10">
+                  <button
+                    onClick={() => router.push(addQueryParams("/agent-store/5"))}
+                    className="text-white text-sm font-medium underline hover:text-[#FF6B00] transition-colors"
+                  >
+                    Detail
+                  </button>
+                </div>
 
-                    {/* 右侧：按钮 */}
-                    <div className="w-full md:w-auto md:flex-shrink-0">
-                      <button 
-                        onClick={() => router.push(addQueryParams("/agent-store/5"))}
-                        className="group/btn relative btn btn-lg w-full md:w-48 rounded-xl bg-gradient-to-r from-[#FF6B00] via-[#FF7A00] to-[#FF8C00] hover:from-[#FF8C00] hover:via-[#FF9A00] hover:to-[#FFA040] text-white border-0 transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60 font-bold text-base px-6 py-4 overflow-hidden"
-                      >
-                        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000"></span>
-                        <span className="relative z-10 flex items-center justify-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          {t("openBox")}
-                        </span>
-                      </button>
-                    </div>
+                {/* 左上角 LIMITED EDITION 标签 */}
+                <div className="mb-3">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#FF6B00] bg-[#1A110A]/80">
+                    <svg className="w-3 h-3 text-[#FF6B00]" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    <span className="text-[#FF6B00] text-xs font-bold uppercase tracking-wide">LIMITED EDITION</span>
                   </div>
+                </div>
 
-                  {/* 描述 */}
-                  <div className="pt-2">
-                    <p className="text-white/80 text-base leading-relaxed">
-                      {t("pandoraBoxDescription")}
-                    </p>
+                {/* 标题 */}
+                <h3 className="text-2xl md:text-3xl font-bold text-white mb-3">{t("pandoraBox")}</h3>
+
+                {/* 描述、图标和箭头 */}
+                <div className="flex items-center gap-12 mb-4 flex-1">
+                  {/* 描述文字靠左 */}
+                  <p className="text-white/60 text-sm leading-relaxed flex-1 line-clamp-3">
+                    {t("pandoraBoxDescription")}
+                  </p>
+                  
+                  {/* 立体盒子图标 */}
+                  <div className="flex-shrink-0 w-16 h-16 md:w-20 md:h-20 flex items-center justify-center">
+                    <svg className="w-full h-full text-[#FF6B00]" viewBox="0 0 120 120" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      {/* 盒子顶部（等轴测投影） */}
+                      <path d="M30 40 L70 20 L110 40 L70 60 Z" fill="currentColor" fillOpacity="0.25" stroke="currentColor" />
+                      {/* 盒子前面 */}
+                      <path d="M30 40 L70 60 L70 100 L30 80 Z" fill="currentColor" fillOpacity="0.35" stroke="currentColor" />
+                      {/* 盒子右侧 */}
+                      <path d="M70 20 L110 40 L110 80 L70 100 Z" fill="currentColor" fillOpacity="0.15" stroke="currentColor" />
+                    </svg>
                   </div>
+                  
+                  {/* 右侧圆形箭头按钮 */}
+                  <button
+                    onClick={() => router.push(addQueryParams("/agent-store/5"))}
+                    className="flex-shrink-0 w-10 h-10 rounded-full bg-[#FF6B00]/80 hover:bg-[#FF6B00] text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
 
-                  {/* 特性列表 */}
-                  <div className="pt-2">
-                    <div className="p-6 rounded-xl bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C00]/5 border border-[#FF6B00]/30 hover:border-[#FF6B00]/50 transition-colors">
-                      <div className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                        <span className="text-lg">✨</span>
-                        <span>{t("features")}</span>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex items-start gap-3 text-sm text-white/80">
-                          <div className="w-2 h-2 rounded-full bg-[#FF6B00] mt-1.5 flex-shrink-0 shadow-lg shadow-[#FF6B00]/50"></div>
-                          <span className="leading-relaxed">{t("feature1")}</span>
-                        </div>
-                        <div className="flex items-start gap-3 text-sm text-white/80">
-                          <div className="w-2 h-2 rounded-full bg-[#FF6B00] mt-1.5 flex-shrink-0 shadow-lg shadow-[#FF6B00]/50"></div>
-                          <span className="leading-relaxed">{t("feature2")}</span>
-                        </div>
-                        <div className="flex items-start gap-3 text-sm text-white/80">
-                          <div className="w-2 h-2 rounded-full bg-[#FF6B00] mt-1.5 flex-shrink-0 shadow-lg shadow-[#FF6B00]/50"></div>
-                          <span className="leading-relaxed">{t("feature3")}</span>
-                        </div>
-                      </div>
-                    </div>
+                {/* 底部：价格 */}
+                <div className="flex items-end mt-auto">
+                  <div className="flex items-baseline gap-4">
+                    <div className="text-3xl font-bold text-[#FF6B00]">0.005 BNB</div>
+                    <div className="text-xs text-white/50">Gas fees apply</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Create Agent */}
-            <div className="group relative card bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl overflow-hidden shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 hover:shadow-2xl transition-all duration-500 hover:border-[#FF6B00]/60 hover:-translate-y-2 flex flex-col">
-              {/* 装饰性渐变背景 */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B00]/8 via-transparent to-[#FF8C00]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-              
-              {/* 顶部装饰线 */}
-              <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#FF6B00]/60 to-transparent"></div>
-              
-              {/* 左侧装饰条 */}
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#FF6B00]/40 via-[#FF6B00]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-              
-              <div className="card-body p-8 relative">
-                <div className="space-y-6">
-                  {/* 顶部：图标、标题、价格和按钮横向排列 */}
-                  <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                    {/* 左侧：图标和标题 */}
-                    <div className="flex items-center gap-4 flex-1">
-                      <div 
-                        className="rounded-xl bg-gradient-to-br from-[#FF6B00]/20 to-[#FF8C00]/20 flex items-center justify-center border border-[#FF6B00]/30 shadow-lg shadow-[#FF6B00]/20 flex-shrink-0"
-                        style={{ width: '80px', height: '80px', minWidth: '80px', maxWidth: '80px', minHeight: '80px', maxHeight: '80px' }}
-                      >
-                        <svg className="w-10 h-10 text-[#FF6B00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-white mb-2">{t("createAgentTitle")}</h3>
-                        <div className="text-3xl font-bold text-[#FF6B00]">
-                          {registrationFee ? `${formatEther(registrationFee)} BNB` : "Loading..."}
-                        </div>
-                      </div>
-                    </div>
+            {/* Create Agent - Marketplace Style */}
+            <div className="group relative bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl overflow-hidden shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 hover:shadow-2xl transition-all duration-500 hover:border-[#FF6B00]/60 hover:-translate-y-2">
+              <div className="relative p-6 h-full min-h-[280px] flex flex-col">
+                {/* 右上角 Detail 链接 */}
+                <div className="absolute top-6 right-6 z-10">
+                  <button
+                    onClick={() => router.push(addQueryParams("/agent-store/register"))}
+                    className="text-white text-sm font-medium underline hover:text-[#FF6B00] transition-colors"
+                  >
+                    Detail
+                  </button>
+                </div>
 
-                    {/* 右侧：按钮 */}
-                    <div className="w-full md:w-auto md:flex-shrink-0">
-                      <button 
-                        onClick={() => router.push(addQueryParams("/agent-store/register"))}
-                        className="group/btn relative btn btn-lg w-full md:w-48 rounded-xl bg-gradient-to-r from-[#FF6B00] via-[#FF7A00] to-[#FF8C00] hover:from-[#FF8C00] hover:via-[#FF9A00] hover:to-[#FFA040] text-white border-0 transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60 font-bold text-base px-6 py-4 overflow-hidden"
-                      >
-                        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000"></span>
-                        <span className="relative z-10 flex items-center justify-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          {t("createAgent")}
-                        </span>
-                      </button>
-                    </div>
+                {/* 左上角标签（可选） */}
+                <div className="mb-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#FF6B00] bg-[#1A110A]/80">
+                    <svg className="w-3 h-3 text-[#FF6B00]" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    <span className="text-[#FF6B00] text-xs font-bold uppercase tracking-wide">PREMIUM</span>
                   </div>
+                </div>
 
-                  {/* 描述 */}
-                  <div className="pt-2">
-                    <p className="text-white/80 text-base leading-relaxed">
-                      {t("createAgentDescription")}
-                    </p>
+                {/* 标题 */}
+                <h3 className="text-2xl md:text-3xl font-bold text-white mb-3">{t("createAgentTitle")}</h3>
+
+                {/* 描述、图标和箭头 */}
+                <div className="flex items-center gap-12 mb-4 flex-1">
+                  {/* 描述文字靠左 */}
+                  <p className="text-white/60 text-sm leading-relaxed flex-1 line-clamp-3">
+                    {t("createAgentDescription")}
+                  </p>
+                  
+                  {/* 钥匙图标（Agent Owner） */}
+                  <div className="flex-shrink-0 w-16 h-16 md:w-20 md:h-20 flex items-center justify-center">
+                    <KeyIcon className="w-10 h-10 md:w-12 md:h-12 text-[#FF6B00]" />
                   </div>
+                  
+                  {/* 右侧圆形箭头按钮 */}
+                  <button
+                    onClick={() => router.push(addQueryParams("/agent-store/register"))}
+                    className="flex-shrink-0 w-10 h-10 rounded-full bg-[#FF6B00]/80 hover:bg-[#FF6B00] text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
 
-                  {/* 特性列表 */}
-                  <div className="pt-2">
-                    <div className="p-6 rounded-xl bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C00]/5 border border-[#FF6B00]/30 hover:border-[#FF6B00]/50 transition-colors">
-                      <div className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                        <span className="text-lg">✨</span>
-                        <span>{t("advantages")}</span>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex items-start gap-3 text-sm text-white/80">
-                          <div className="w-2 h-2 rounded-full bg-[#FF6B00] mt-1.5 flex-shrink-0 shadow-lg shadow-[#FF6B00]/50"></div>
-                          <span className="leading-relaxed">{t("advantage1")}</span>
-                        </div>
-                        <div className="flex items-start gap-3 text-sm text-white/80">
-                          <div className="w-2 h-2 rounded-full bg-[#FF6B00] mt-1.5 flex-shrink-0 shadow-lg shadow-[#FF6B00]/50"></div>
-                          <span className="leading-relaxed">{t("advantage2")}</span>
-                        </div>
-                        <div className="flex items-start gap-3 text-sm text-white/80">
-                          <div className="w-2 h-2 rounded-full bg-[#FF6B00] mt-1.5 flex-shrink-0 shadow-lg shadow-[#FF6B00]/50"></div>
-                          <span className="leading-relaxed">{t("advantage3")}</span>
-                        </div>
-                      </div>
+                {/* 底部：价格 */}
+                <div className="flex items-end mt-auto">
+                  <div className="flex items-baseline gap-4">
+                    <div className="text-3xl font-bold text-[#FF6B00]">
+                      {registrationFee ? `${formatEther(registrationFee)} BNB` : "Loading..."}
                     </div>
+                    <div className="text-xs text-white/50">Gas fees apply</div>
                   </div>
                 </div>
               </div>
