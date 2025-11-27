@@ -13,7 +13,7 @@ export const DEFAULT_ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY ||"cR4WnXePio
 
 const scaffoldConfig = {
   // The networks on which your DApp is live
-  targetNetworks: [chains.bscTestnet],
+  targetNetworks: [chains.bsc],
 
   // The interval at which your front-end polls the RPC servers for new data
   // it has no effect if you only target the local network (default is 4000)
@@ -30,9 +30,9 @@ const scaffoldConfig = {
   rpcOverrides: {
     // Example:
     // [chains.mainnet.id]: "https://mainnet.rpc.buidlguidl.com",
-    // BSC Testnet: 默认使用 Alchemy RPC，可通过环境变量覆盖
-    [chains.bscTestnet.id]: process.env.NEXT_PUBLIC_BSC_TESTNET_RPC || 
-      `https://bnb-testnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || DEFAULT_ALCHEMY_API_KEY}`,
+    // BSC Mainnet: 默认使用 Alchemy RPC，可通过环境变量覆盖
+    [chains.bsc.id]: process.env.NEXT_PUBLIC_BSC_RPC || 
+      `https://bnb-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || DEFAULT_ALCHEMY_API_KEY}`,
   },
 
   // This is ours WalletConnect's default project ID.

@@ -17,17 +17,19 @@ export const wagmiConfig = createConfig({
   client({ chain }) {
     let rpcFallbacks: ReturnType<typeof http>[] = [];
 
-    // BSC Testnet (chainId: 97) 的特殊处理：默认优先使用 Alchemy
-    if (chain.id === 97) {
+    // BSC Mainnet (chainId: 56) 的特殊处理：默认优先使用 Alchemy
+    if (chain.id === 56) {
       const rpcOverrideUrl = (scaffoldConfig.rpcOverrides as ScaffoldConfig["rpcOverrides"])?.[chain.id];
       const alchemyHttpUrl = getAlchemyHttpUrl(chain.id);
       
       // 构建多个 fallback RPC，按优先级排序
       // 公共 RPC 作为可靠的 fallback
       const publicRpcs = [
-        http("https://data-seed-prebsc-1-s1.binance.org:8545"),
-        http("https://data-seed-prebsc-2-s1.binance.org:8545"),
-        http("https://bsc-testnet-rpc.publicnode.com"),
+        http("https://bsc-dataseed1.binance.org"),
+        http("https://bsc-dataseed2.binance.org"),
+        http("https://bsc-dataseed3.binance.org"),
+        http("https://bsc-dataseed4.binance.org"),
+        http("https://bsc-rpc.publicnode.com"),
       ];
       
       // 始终优先使用 Alchemy（如果可用）
