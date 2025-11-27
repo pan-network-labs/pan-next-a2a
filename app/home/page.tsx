@@ -375,7 +375,7 @@ const HomePage = () => {
                 {/* 右上角 Detail 链接 */}
                 <div className="absolute top-6 right-6 z-10">
                   <button
-                    onClick={() => router.push(addQueryParams("/agent-store/5"))}
+                    onClick={() => router.push(addQueryParams("/agent-store/1"))}
                     className="text-white text-sm font-medium underline hover:text-[#FF6B00] transition-colors"
                   >
                     Detail
@@ -416,7 +416,7 @@ const HomePage = () => {
                   
                   {/* 右侧圆形箭头按钮 */}
                   <button
-                    onClick={() => router.push(addQueryParams("/agent-store/5"))}
+                    onClick={() => router.push(addQueryParams("/agent-store/1"))}
                     className="flex-shrink-0 w-10 h-10 rounded-full bg-[#FF6B00]/80 hover:bg-[#FF6B00] text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
