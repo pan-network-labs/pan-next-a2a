@@ -8,7 +8,7 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
-  title: "pandora",
+  title: "PANdora",
   description: "Built with 🏗 Scaffold-ETH 2",
 });
 
