@@ -370,12 +370,18 @@ const HomePage = () => {
         <div className="mb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Open Box - Marketplace Style */}
-            <div className="group relative bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl overflow-hidden shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 hover:shadow-2xl transition-all duration-500 hover:border-[#FF6B00]/60 hover:-translate-y-2">
+            <div 
+              onClick={() => router.push(addQueryParams("/agent-store/1"))}
+              className="group relative bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl overflow-hidden shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 hover:shadow-2xl transition-all duration-500 hover:border-[#FF6B00]/60 hover:-translate-y-2 cursor-pointer"
+            >
               <div className="relative p-6 h-full min-h-[280px] flex flex-col">
                 {/* 右上角 Detail 链接 */}
                 <div className="absolute top-6 right-6 z-10">
                   <button
-                    onClick={() => router.push(addQueryParams("/agent-store/1"))}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(addQueryParams("/agent-store/1"));
+                    }}
                     className="text-white text-sm font-medium underline hover:text-[#FF6B00] transition-colors"
                   >
                     Detail
@@ -414,10 +420,13 @@ const HomePage = () => {
                     </svg>
                   </div>
                   
-                  {/* 右侧圆形箭头按钮 */}
+                  {/* 右侧圆形箭头按钮 - 手机端隐藏，电脑端显示 */}
                   <button
-                    onClick={() => router.push(addQueryParams("/agent-store/1"))}
-                    className="flex-shrink-0 w-10 h-10 rounded-full bg-[#FF6B00]/80 hover:bg-[#FF6B00] text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(addQueryParams("/agent-store/1"));
+                    }}
+                    className="hidden md:flex flex-shrink-0 w-10 h-10 rounded-full bg-[#FF6B00]/80 hover:bg-[#FF6B00] text-white items-center justify-center transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -436,12 +445,18 @@ const HomePage = () => {
             </div>
 
             {/* Create Agent - Marketplace Style */}
-            <div className="group relative bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl overflow-hidden shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 hover:shadow-2xl transition-all duration-500 hover:border-[#FF6B00]/60 hover:-translate-y-2">
+            <div 
+              onClick={() => router.push(addQueryParams("/agent-store/register"))}
+              className="group relative bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 backdrop-blur-xl border border-[#FF6B00]/30 rounded-2xl overflow-hidden shadow-xl shadow-black/30 hover:shadow-[#FF6B00]/20 hover:shadow-2xl transition-all duration-500 hover:border-[#FF6B00]/60 hover:-translate-y-2 cursor-pointer"
+            >
               <div className="relative p-6 h-full min-h-[280px] flex flex-col">
                 {/* 右上角 Detail 链接 */}
                 <div className="absolute top-6 right-6 z-10">
                   <button
-                    onClick={() => router.push(addQueryParams("/agent-store/register"))}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(addQueryParams("/agent-store/register"));
+                    }}
                     className="text-white text-sm font-medium underline hover:text-[#FF6B00] transition-colors"
                   >
                     Detail
@@ -473,10 +488,13 @@ const HomePage = () => {
                     <KeyIcon className="w-10 h-10 md:w-12 md:h-12 text-[#FF6B00]" />
                   </div>
                   
-                  {/* 右侧圆形箭头按钮 */}
+                  {/* 右侧圆形箭头按钮 - 手机端隐藏，电脑端显示 */}
                   <button
-                    onClick={() => router.push(addQueryParams("/agent-store/register"))}
-                    className="flex-shrink-0 w-10 h-10 rounded-full bg-[#FF6B00]/80 hover:bg-[#FF6B00] text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(addQueryParams("/agent-store/register"));
+                    }}
+                    className="hidden md:flex flex-shrink-0 w-10 h-10 rounded-full bg-[#FF6B00]/80 hover:bg-[#FF6B00] text-white items-center justify-center transition-all duration-300 shadow-lg shadow-[#FF6B00]/40 hover:shadow-[#FF6B00]/60"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

@@ -26,7 +26,7 @@ export const translations = {
     pricePending: "Price Pending",
     
     // Agent Detail
-    backToStore: "← Back to Store",
+    backToStore: "← Back",
     agentLink: "Link:",
     agentRequestMethod: "Request Method:",
     agentRequestParams: "Request Parameters:",
@@ -217,7 +217,7 @@ export const translations = {
     pricePending: "가격 대기 중",
     
     // Agent Detail
-    backToStore: "← 스토어로 돌아가기",
+    backToStore: "← 뒤로",
     agentLink: "링크:",
     agentRequestMethod: "요청 방식:",
     agentRequestParams: "요청 매개변수:",
@@ -408,7 +408,7 @@ export const translations = {
     pricePending: "價格待定",
     
     // Agent Detail
-    backToStore: "← 返回商店",
+    backToStore: "← 返回",
     agentLink: "連結：",
     agentRequestMethod: "請求方式：",
     agentRequestParams: "請求參數：",
