@@ -658,42 +658,70 @@ const HomePage = () => {
       }
       
       if (response.ok) {
-        updateStep("api", "completed");
-        updateStep("image", "executing");
-        
-        let imageUrl: string | undefined;
-        
-        if (responseData.image) {
-          imageUrl = responseData.image;
-        } else if (responseData.data?.image) {
-          imageUrl = responseData.data.image;
-        } else if (responseData.result?.image) {
-          imageUrl = responseData.result.image;
-        } else if (responseData.url) {
-          imageUrl = responseData.url;
-        } else if (responseData.data?.url) {
-          imageUrl = responseData.data.url;
-        } else if (typeof responseData === "string" && (responseData.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || responseData.includes("http"))) {
-          imageUrl = responseData;
-        }
-        
-        if (imageUrl) {
-          setAnimationImageUrl(imageUrl);
-        }
-        
-        updateStep("image", "completed");
-        
-        setTimeout(() => {
-          setShowExecutionChecklist(false);
-          if (imageUrl) {
-            setShowBoxAnimation(true);
-          }
-        }, 1000);
-        
         setRequestResult({
           success: true,
           data: responseData,
         });
+        
+        // 提取图片URL（支持多种可能的字段名和嵌套结构）
+        let imageUrl: string | undefined = undefined;
+        
+        if (typeof responseData === "string") {
+          // 如果是字符串，尝试解析为 JSON
+          try {
+            const parsed = JSON.parse(responseData);
+            imageUrl = parsed?.image || 
+                      parsed?.imageUrl || 
+                      parsed?.url || 
+                      parsed?.data?.image ||
+                      parsed?.data?.imageUrl ||
+                      parsed?.data?.data ||
+                      parsed?.result?.image ||
+                      parsed?.result?.imageUrl;
+          } catch (e) {
+            // 不是 JSON，检查是否是 URL
+            if (responseData.startsWith("http://") || responseData.startsWith("https://")) {
+              imageUrl = responseData;
+            }
+          }
+        } else if (typeof responseData === "object" && responseData !== null) {
+          const data = responseData as any;
+          imageUrl = data?.image || 
+                    data?.imageUrl || 
+                    data?.url || 
+                    data?.data?.image ||
+                    data?.data?.imageUrl ||
+                    data?.data?.data ||
+                    data?.result?.image ||
+                    data?.result?.imageUrl;
+        }
+        
+        // 更新步骤：API 调用完成
+        updateStep("api", "completed");
+        updateStep("image", "executing");
+        
+        // 如果找到有效的图片URL，设置图片URL
+        // 放宽验证条件：只要包含 http 或 https，就认为是可能的图片URL
+        if (imageUrl && (
+          imageUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) || 
+          imageUrl.includes("image") || 
+          imageUrl.includes("png") || 
+          imageUrl.includes("jpg") ||
+          imageUrl.startsWith("http://") ||
+          imageUrl.startsWith("https://")
+        )) {
+          setAnimationImageUrl(imageUrl);
+          // 更新步骤：图片生成完成
+          updateStep("image", "completed");
+        } else {
+          // 即使没有图片，也标记为完成
+          updateStep("image", "completed");
+          // 如果没有找到图片，清空图片URL（但动画仍会显示，只显示盒子）
+          setAnimationImageUrl(undefined);
+        }
+        
+        // 注意：动画显示由 ExecutionChecklist 的 onComplete 回调统一处理
+        // 即使没有图片，动画也会显示（只显示盒子颤抖效果）
       } else {
         let errorMessage = `Request failed: ${response.status} ${response.statusText}`;
         const errorData = responseData?.message || responseData?.error || responseData?.details?.message || responseData?.details?.error || "";

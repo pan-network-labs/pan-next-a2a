@@ -65,13 +65,25 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const result = await duneClient.executeQueryAndWait(
-          queryId,
-          parameters,
-          body.maxWaitTime,
-          body.pollInterval
-        );
-        return NextResponse.json(result);
+        try {
+          const result = await duneClient.executeQueryAndWait(
+            queryId,
+            parameters,
+            body.maxWaitTime || 120000, // 默认 120 秒
+            body.pollInterval || 2000
+          );
+          return NextResponse.json(result);
+        } catch (queryError: any) {
+          console.error("Dune 查询执行错误:", queryError);
+          return NextResponse.json(
+            {
+              error: "查询执行失败",
+              message: queryError.message || "查询执行时发生错误",
+              queryId,
+            },
+            { status: 500 }
+          );
+        }
       }
 
       default:
@@ -81,10 +93,12 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error: any) {
+    console.error("Dune API 错误:", error);
     return NextResponse.json(
       {
         error: "Dune API 请求失败",
-        message: error.message,
+        message: error.message || "未知错误",
+        details: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 }
     );

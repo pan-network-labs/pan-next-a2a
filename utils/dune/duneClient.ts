@@ -48,28 +48,45 @@ class DuneClient {
    */
   async executeQuery(queryId: number, parameters?: Record<string, any>): Promise<string> {
     if (!this.apiKey) {
-      throw new Error("Dune API Key 未设置");
+      throw new Error("Dune API Key 未设置，请在环境变量中设置 DUNE_API_KEY");
     }
 
     const url = `${this.baseUrl}/query/${queryId}/execute`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "X-Dune-API-Key": this.apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query_parameters: parameters || {},
-      }),
-    });
+    
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "X-Dune-API-Key": this.apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query_parameters: parameters || {},
+        }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(`Dune API 错误: ${error.message || response.statusText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText || response.statusText };
+        }
+        throw new Error(`Dune API 错误 (${response.status}): ${errorData.message || errorData.error || response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (!data.execution_id) {
+        throw new Error("Dune API 响应格式错误：缺少 execution_id");
+      }
+      return data.execution_id;
+    } catch (error: any) {
+      if (error.message.includes("Dune API")) {
+        throw error;
+      }
+      throw new Error(`执行查询失败: ${error.message}`);
     }
-
-    const data = await response.json();
-    return data.execution_id;
   }
 
   /**
@@ -109,7 +126,7 @@ class DuneClient {
   async executeQueryAndWait(
     queryId: number,
     parameters?: Record<string, any>,
-    maxWaitTime: number = 60000,
+    maxWaitTime: number = 120000, // 默认 120 秒
     pollInterval: number = 2000
   ): Promise<DuneQueryResult> {
     // 执行查询
@@ -117,22 +134,25 @@ class DuneClient {
 
     // 轮询等待结果
     const startTime = Date.now();
+    let lastState = "";
+    
     while (Date.now() - startTime < maxWaitTime) {
       const result = await this.getQueryResult(executionId);
+      lastState = result.state;
 
       if (result.state === "QUERY_STATE_COMPLETED") {
         return result;
       }
 
       if (result.state === "QUERY_STATE_FAILED") {
-        throw new Error("查询执行失败");
+        throw new Error(`查询执行失败 (Query ID: ${queryId}, Execution ID: ${executionId})`);
       }
 
       // 等待后继续轮询
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
 
-    throw new Error("查询执行超时");
+    throw new Error(`查询执行超时 (Query ID: ${queryId}, Execution ID: ${executionId}, 最后状态: ${lastState}, 等待时间: ${Math.round((Date.now() - startTime) / 1000)}秒)`);
   }
 
   /**
