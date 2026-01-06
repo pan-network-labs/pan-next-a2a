@@ -6,6 +6,7 @@ import { useDuneQuery } from "~~/hooks/useDuneQuery";
 import { DuneDashboard } from "~~/components/DuneDashboard";
 import { DuneChart } from "~~/components/DuneChart";
 import { DuneAccessGuard } from "~~/components/DuneAccessGuard";
+import { WalletStats } from "~~/components/WalletStats";
 import { hasDuneAccess } from "~~/utils/dune/accessControl";
 import { useLanguage } from "~~/utils/i18n/LanguageContext";
 import { notification } from "~~/utils/scaffold-eth";
@@ -177,6 +178,12 @@ export default function DunePage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* 实时统计数据 */}
+          <div className="mt-8 bg-gradient-to-br from-[#1A110A]/90 to-[#261A10]/90 border border-[#FF6B00]/30 rounded-2xl p-6">
+            <h3 className="text-xl font-bold text-white mb-4">实时统计数据</h3>
+            <WalletStats />
           </div>
         </div>
 
