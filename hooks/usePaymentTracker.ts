@@ -30,13 +30,13 @@ export function usePaymentTracker() {
                   abi: contract.abi,
                   functionName: "getPaymentInfo",
                   args: [tokenId],
-                });
+                }) as any;
 
                 await recordPayment({
                   address: owner as string,
-                  amount: paymentInfo.amount?.toString() || amount?.toString() || "0",
+                  amount: paymentInfo?.amount?.toString() || amount?.toString() || "0",
                   tokenId: Number(tokenId),
-                  timestamp: Number(paymentInfo.timestamp || BigInt(Date.now())),
+                  timestamp: Number(paymentInfo?.timestamp || BigInt(Date.now())),
                   transactionHash: log.transactionHash,
                   rarity: rarity === 0 ? "N" : rarity === 1 ? "R" : "S",
                 });
