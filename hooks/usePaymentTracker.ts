@@ -21,7 +21,9 @@ export function usePaymentTracker() {
 
           if (tokenId && owner && publicClient) {
             try {
-              const contract = deployedContracts[targetNetwork.id]?.PaymentSBT;
+              // 使用 as any 因为 deployedContracts 的类型定义不支持动态 number 索引
+              // 但在运行时 targetNetwork.id 是有效的键
+              const contract = (deployedContracts as any)[targetNetwork.id]?.PaymentSBT;
               if (contract) {
                 const paymentInfo = await publicClient.readContract({
                   address: contract.address,
