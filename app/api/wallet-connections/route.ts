@@ -13,9 +13,10 @@ function getRedisClient() {
       const { kv } = require("@vercel/kv");
       redisClient = kv;
       redisType = "vercel-kv";
+      console.log("✅ 使用 Vercel KV 作为 Redis 客户端");
       return redisClient;
     } catch (e) {
-      console.warn("Vercel KV 未安装");
+      console.warn("⚠️ Vercel KV 未安装:", e);
     }
   }
 
@@ -28,12 +29,14 @@ function getRedisClient() {
         token: process.env.UPSTASH_REDIS_REST_TOKEN,
       });
       redisType = "upstash";
+      console.log("✅ 使用 Upstash Redis 作为 Redis 客户端");
       return redisClient;
     } catch (e) {
-      console.warn("Upstash Redis 未安装");
+      console.warn("⚠️ Upstash Redis 未安装:", e);
     }
   }
 
+  console.warn("⚠️ 未找到 Redis 配置");
   return null;
 }
 
@@ -61,9 +64,12 @@ export async function POST(request: NextRequest) {
   try {
     const client = getRedisClient();
     if (!client) {
+      console.error("❌ Redis 未配置 - 请设置环境变量:");
+      console.error("   Vercel KV: KV_REST_API_URL, KV_REST_API_TOKEN");
+      console.error("   或 Upstash: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN");
       return NextResponse.json({
         success: false,
-        message: "Redis 未配置",
+        message: "Redis 未配置，请设置 KV_REST_API_URL/KV_REST_API_TOKEN 或 UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN",
       });
     }
 
