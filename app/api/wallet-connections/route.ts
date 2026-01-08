@@ -1,13 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// 动态导入 Redis 客户端（支持 Vercel KV 和 Upstash Redis）
+// 动态导入 Redis 客户端（支持标准 Redis URL、Vercel KV 和 Upstash Redis）
 let redisClient: any = null;
-let redisType: "vercel-kv" | "upstash" | null = null;
+let redisType: "redis" | "vercel-kv" | "upstash" | null = null;
 
 function getRedisClient() {
   if (redisClient) return redisClient;
 
-  // 优先使用 Vercel KV
+  // 优先使用标准 Redis URL (node-redis)
+  if (process.env.REDIS_URL) {
+    try {
+      const { createClient } = require("redis");
+      redisClient = createClient({
+        url: process.env.REDIS_URL,
+      });
+      // 确保连接已建立
+      if (!redisClient.isOpen) {
+        redisClient.connect().catch((err: any) => {
+          console.error("Redis 连接失败:", err);
+        });
+      }
+      redisType = "redis";
+      console.log("✅ 使用 REDIS_URL 连接 Redis (node-redis)");
+      return redisClient;
+    } catch (e) {
+      console.warn("⚠️ redis (node-redis) 未安装:", e);
+    }
+  }
+
+  // 使用 Vercel KV
   if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     try {
       const { kv } = require("@vercel/kv");
@@ -40,6 +61,68 @@ function getRedisClient() {
   return null;
 }
 
+// Redis 操作封装函数，统一处理不同客户端的 API 差异
+async function redisZAdd(client: any, key: string, score: number, member: string) {
+  if (redisType === "redis") {
+    return await client.zAdd(key, { score, value: member });
+  } else if (redisType === "vercel-kv") {
+    return await client.zadd(key, score, member);
+  } else {
+    return await client.zadd(key, { score, member });
+  }
+}
+
+async function redisZRange(client: any, key: string, start: number, stop: number, options?: { rev?: boolean }) {
+  if (redisType === "redis") {
+    const result = await client.zRange(key, start, stop, options?.rev ? { REV: true } : {});
+    return result;
+  } else if (redisType === "vercel-kv") {
+    return await client.zrange(key, start, stop, options?.rev ? { rev: true } : {});
+  } else {
+    return await client.zrange(key, start, stop, options);
+  }
+}
+
+async function redisZCard(client: any, key: string) {
+  if (redisType === "redis") {
+    return await client.zCard(key);
+  } else {
+    return await client.zcard(key);
+  }
+}
+
+async function redisSAdd(client: any, key: string, member: string) {
+  if (redisType === "redis") {
+    return await client.sAdd(key, member);
+  } else {
+    return await client.sadd(key, member);
+  }
+}
+
+async function redisSIsMember(client: any, key: string, member: string) {
+  if (redisType === "redis") {
+    return (await client.sIsMember(key, member)) ? 1 : 0;
+  } else {
+    return await client.sismember(key, member);
+  }
+}
+
+async function redisSCard(client: any, key: string) {
+  if (redisType === "redis") {
+    return await client.sCard(key);
+  } else {
+    return await client.scard(key);
+  }
+}
+
+async function redisSMembers(client: any, key: string) {
+  if (redisType === "redis") {
+    return await client.sMembers(key);
+  } else {
+    return await client.smembers(key);
+  }
+}
+
 // 使用独立前缀避免冲突
 const PREFIX = "wallet_tracker:";
 
@@ -65,11 +148,12 @@ export async function POST(request: NextRequest) {
     const client = getRedisClient();
     if (!client) {
       console.error("❌ Redis 未配置 - 请设置环境变量:");
+      console.error("   标准 Redis: REDIS_URL");
       console.error("   Vercel KV: KV_REST_API_URL, KV_REST_API_TOKEN");
       console.error("   或 Upstash: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN");
       return NextResponse.json({
         success: false,
-        message: "Redis 未配置，请设置 KV_REST_API_URL/KV_REST_API_TOKEN 或 UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN",
+        message: "Redis 未配置，请设置 REDIS_URL 或 KV_REST_API_URL/KV_REST_API_TOKEN 或 UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN",
       });
     }
 
@@ -83,7 +167,8 @@ export async function POST(request: NextRequest) {
 
       const normalizedAddress = address.toLowerCase();
       const timestamp = Date.now();
-      const isNewAddress = !(await client.exists(PREFIX + normalizedAddress));
+      const existsResult = await client.exists(PREFIX + normalizedAddress);
+      const isNewAddress = redisType === "redis" ? existsResult === 0 : !existsResult;
 
       const connection: WalletConnection = {
         address: normalizedAddress,
@@ -93,15 +178,13 @@ export async function POST(request: NextRequest) {
       };
 
       await Promise.all([
-        redisType === "vercel-kv"
-          ? client.zadd(PREFIX + "connections", timestamp, JSON.stringify(connection))
-          : client.zadd(PREFIX + "connections", { score: timestamp, member: JSON.stringify(connection) }),
-        client.sadd(PREFIX + "unique_addresses", normalizedAddress),
+        redisZAdd(client, PREFIX + "connections", timestamp, JSON.stringify(connection)),
+        redisSAdd(client, PREFIX + "unique_addresses", normalizedAddress),
         client.set(PREFIX + normalizedAddress, timestamp.toString()),
         client.incr(PREFIX + "total_connections"),
       ]);
 
-      const uniqueCount = await client.scard(PREFIX + "unique_addresses");
+      const uniqueCount = await redisSCard(client, PREFIX + "unique_addresses");
 
       return NextResponse.json({
         success: true,
@@ -119,7 +202,8 @@ export async function POST(request: NextRequest) {
 
       const normalizedAddress = address.toLowerCase();
       const timestamp = Date.now();
-      const isNewPayer = (await client.sismember(PREFIX + "paid_addresses", normalizedAddress)) === 0;
+      const isMemberResult = await redisSIsMember(client, PREFIX + "paid_addresses", normalizedAddress);
+      const isNewPayer = isMemberResult === 0;
 
       const payment: PaymentRecord = {
         address: normalizedAddress,
@@ -131,10 +215,8 @@ export async function POST(request: NextRequest) {
       };
 
       await Promise.all([
-        redisType === "vercel-kv"
-          ? client.zadd(PREFIX + "payments", timestamp, JSON.stringify(payment))
-          : client.zadd(PREFIX + "payments", { score: timestamp, member: JSON.stringify(payment) }),
-        client.sadd(PREFIX + "paid_addresses", normalizedAddress),
+        redisZAdd(client, PREFIX + "payments", timestamp, JSON.stringify(payment)),
+        redisSAdd(client, PREFIX + "paid_addresses", normalizedAddress),
         client.incr(PREFIX + normalizedAddress + ":payment_count"),
       ]);
 
@@ -147,7 +229,7 @@ export async function POST(request: NextRequest) {
       const newGlobalTotal = (BigInt(globalTotal) + BigInt(amount)).toString();
       await client.set(PREFIX + "total_payment_amount", newGlobalTotal);
 
-      const paidCount = await client.scard(PREFIX + "paid_addresses");
+      const paidCount = await redisSCard(client, PREFIX + "paid_addresses");
 
       return NextResponse.json({
         success: true,
@@ -186,10 +268,10 @@ export async function GET(request: NextRequest) {
     // 查询特定地址的统计
     if (address) {
       const normalizedAddress = address.toLowerCase();
-      const [paymentCount, totalAmount, hasPaid, connectionTime] = await Promise.all([
+      const [paymentCount, totalAmount, hasPaidResult, connectionTime] = await Promise.all([
         client.get(PREFIX + normalizedAddress + ":payment_count") || 0,
         client.get(PREFIX + normalizedAddress + ":total_amount") || "0",
-        client.sismember(PREFIX + "paid_addresses", normalizedAddress),
+        redisSIsMember(client, PREFIX + "paid_addresses", normalizedAddress),
         client.get(PREFIX + normalizedAddress) || null,
       ]);
 
@@ -197,7 +279,7 @@ export async function GET(request: NextRequest) {
         address: normalizedAddress,
         paymentCount: Number(paymentCount) || 0,
         totalAmount,
-        hasPaid: hasPaid === 1,
+        hasPaid: hasPaidResult === 1,
         firstConnectionTime: connectionTime ? Number(connectionTime) : null,
       });
     }
@@ -205,10 +287,7 @@ export async function GET(request: NextRequest) {
     // 查询特定地址的所有付费记录
     if (action === "payments" && address) {
       const normalizedAddress = address.toLowerCase();
-      const allPayments =
-        redisType === "vercel-kv"
-          ? await client.zrange(PREFIX + "payments", 0, -1, { rev: true })
-          : await client.zrange(PREFIX + "payments", 0, -1, { rev: true });
+      const allPayments = await redisZRange(client, PREFIX + "payments", 0, -1, { rev: true });
 
       const addressPayments = allPayments
         .map((p: string) => {
@@ -226,9 +305,9 @@ export async function GET(request: NextRequest) {
 
     // 获取全局统计
     const [uniqueCount, totalConnections, paidCount, totalPayments, totalPaymentAmount] = await Promise.all([
-      client.scard(PREFIX + "unique_addresses"),
+      redisSCard(client, PREFIX + "unique_addresses"),
       client.get(PREFIX + "total_connections") || 0,
-      client.scard(PREFIX + "paid_addresses"),
+      redisSCard(client, PREFIX + "paid_addresses"),
       client.get(PREFIX + "total_payments") || 0,
       client.get(PREFIX + "total_payment_amount") || "0",
     ]);
