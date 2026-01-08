@@ -40,7 +40,8 @@
     "usehooks-ts": "^3.1.0",
     "viem": "2.34.0",
     "wagmi": "2.16.4",
-    "zustand": "^5.0.0"
+    "zustand": "^5.0.0",
+    "redis": "^5.10.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
