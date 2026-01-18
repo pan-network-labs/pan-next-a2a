@@ -237,6 +237,12 @@ export const translations = {
     referCreateAgent: "Referrer Upload Agent",
     referCreateAgentPointsDesc: "200 points per Agent",
     totalPoints: "Total Points",
+
+    // Maintenance
+    maintenanceTitle: "System Under Maintenance",
+    maintenanceDesc1: "We are upgrading and optimizing the system.",
+    maintenanceDesc2: "Please try again later. Thank you for your patience.",
+    maintenanceContact: "For urgent issues, please contact our support team.",
   },
   ko: {
     // Header
@@ -474,6 +480,12 @@ export const translations = {
     referCreateAgent: "추천인 Agent 업로드",
     referCreateAgentPointsDesc: "Agent당 200포인트",
     totalPoints: "총 포인트",
+
+    // Maintenance
+    maintenanceTitle: "시스템 점검 중",
+    maintenanceDesc1: "시스템 업그레이드 및 최적화를 진행하고 있습니다.",
+    maintenanceDesc2: "잠시 후 다시 시도해 주세요. 기다려 주셔서 감사합니다.",
+    maintenanceContact: "긴급한 문제가 있으시면 지원팀에 문의해 주세요.",
   },
   "zh-TW": {
     // Header
@@ -711,6 +723,12 @@ export const translations = {
     referCreateAgent: "推薦人上傳 Agent",
     referCreateAgentPointsDesc: "每個 Agent 獲得 200 積分",
     totalPoints: "總積分",
+
+    // Maintenance
+    maintenanceTitle: "系統維護中",
+    maintenanceDesc1: "我們正在對系統進行升級與優化。",
+    maintenanceDesc2: "請稍後再試，感謝您的耐心等待。",
+    maintenanceContact: "如有緊急問題，請聯繫我們的支援團隊。",
   },
 };
 
